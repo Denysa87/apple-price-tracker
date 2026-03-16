@@ -456,7 +456,11 @@ def find_product_url(html: str, query: str, site: str, base_url: str) -> Optiona
                 if score > 0:
                     candidates.append((score, make_absolute(href), title[:80]))
 
+    # DEBUG — listar todos os links encontrados se não houve candidatos
     if not candidates:
+        all_hrefs = [(a.get("href",""), (a.get_text(strip=True) or a.get("title","") or "")[:60])
+                     for a in soup.find_all("a", href=True)][:20]
+        print(f"\n    [DEBUG {site}] 0 candidatos. Primeiros links: {all_hrefs}", end="")
         return None
 
     # Ordenar por relevância (maior primeiro), desempate pelo URL mais curto (página de produto mais directa)
