@@ -292,6 +292,18 @@ def extract_prices_from_html(html: str) -> list[float]:
         for hit in re.findall(pat, html):
             add(_parse_pt_price(hit))
 
+    # 6. Rádio Popular — <select name="modp"> com data-total nas opções de pagamento
+    # O preço de compra à vista está na opção com value="1" (pagamento único / compra fim mês)
+    for select in soup.find_all("select", {"name": "modp"}):
+        opt = select.find("option", {"value": "1"})
+        if not opt:
+            opts = select.find_all("option")
+            opt = opts[-1] if opts else None
+        if opt:
+            total = opt.get("data-total", "")
+            if total:
+                add(_parse_pt_price(total))
+
     return sorted(found)
 
 
@@ -334,29 +346,39 @@ def find_product_url(html: str, query: str, site: str, base_url: str) -> Optiona
                     candidates.append((score, make_absolute(href), title[:80]))
 
     elif site == "Rádio Popular":
-        # Cards: <article class="discount-product"> com data-href
-        for article in soup.find_all("article", class_=lambda c: c and "discount-product" in c):
-            # Tentar data-href primeiro, depois primeiro <a>
+        # Cards: <article class="js-trigger-href"> com data-href (não "discount-product")
+        # Os títulos estão no atributo alt das imagens dentro do article
+        for article in soup.find_all("article", class_=lambda c: c and "js-trigger-href" in (c if isinstance(c, str) else " ".join(c))):
             href = article.get("data-href", "")
-            if not href:
-                a = article.find("a", href=True)
-                href = a.get("href", "") if a else ""
-            # Título
-            title_el = article.find(["h2", "h3", "h4"]) or article.find("a")
-            title = title_el.get_text(strip=True) if title_el else href
-            # URLs de redirect: /links/?id_link= — resolver se possível, ou usar href direto de /produto/
+            # Título: tentar alt da imagem, h2/h3, ou texto dos links
+            title = ""
+            img = article.find("img")
+            if img and img.get("alt"):
+                title = img["alt"]
+            if not title:
+                title_el = article.find(["h2", "h3", "h4"])
+                title = title_el.get_text(strip=True) if title_el else ""
+            if not title:
+                a_el = article.find("a")
+                title = a_el.get_text(strip=True) if a_el else href
+            # Preferir link direto /produto/ se existir
             direct = article.find("a", href=lambda h: h and "/produto/" in h)
             if direct:
                 href = direct.get("href", href)
             score = relevance(title)
             if score > 0 and href:
                 candidates.append((score, make_absolute(href), title[:80]))
-        # Fallback: qualquer link /produto/ na página
+        # Fallback: todos os links /produto/ na página com relevância
         if not candidates:
             for a in soup.find_all("a", href=lambda h: h and "/produto/" in h):
-                title = a.get_text(strip=True) or a.get("title", "") or ""
+                title = a.get_text(strip=True) or a.get("title", "") or a.get("aria-label", "") or ""
+                # Tentar alt da img dentro do link
+                img = a.find("img")
+                if not title and img:
+                    title = img.get("alt", "")
                 score = relevance(title)
-                candidates.append((score, make_absolute(a["href"]), title[:80]))
+                if score > 0:
+                    candidates.append((score, make_absolute(a["href"]), title[:80]))
 
     elif site == "Darty":
         # Cards: <div> ou <article> com classe 'product' ou 'article'
@@ -496,8 +518,12 @@ async def scrape_all_async() -> dict:
                         flag = "🔗" if is_override else "📡"
                         print(f"      {flag}  {site}{'  [override]' if is_override else ''}...", end=" ", flush=True)
                         try:
-                            await page.goto(url, wait_until="domcontentloaded", timeout=20000)
-                            await page.wait_for_timeout(2500)
+                            # Alguns sites precisam de networkidle para carregar resultados via JS
+                            wait_mode = "networkidle" if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else "domcontentloaded"
+                            await page.goto(url, wait_until=wait_mode, timeout=25000)
+                            # Espera extra para JS renderizar os resultados
+                            extra_wait = 4000 if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else 2500
+                            await page.wait_for_timeout(extra_wait)
                             html = await page.content()
 
                             # Se não é override, tentar navegar para a página do produto
@@ -513,8 +539,8 @@ async def scrape_all_async() -> dict:
                                 product_url = find_product_url(html, query, site, site_bases.get(site, ""))
                                 if product_url and product_url != page.url:
                                     try:
-                                        await page.goto(product_url, wait_until="domcontentloaded", timeout=15000)
-                                        await page.wait_for_timeout(2000)
+                                        await page.goto(product_url, wait_until=wait_mode, timeout=20000)
+                                        await page.wait_for_timeout(3000)
                                         html = await page.content()
                                     except Exception:
                                         pass  # Se falhar, usa o HTML da pesquisa
