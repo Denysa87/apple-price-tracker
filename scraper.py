@@ -524,18 +524,41 @@ async def scrape_all_async() -> dict:
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--disable-gpu",
+                "--disable-blink-features=AutomationControlled",
+                "--window-size=1280,800",
             ],
         )
         context = await browser.new_context(
             user_agent=(
-                "Mozilla/5.0 (X11; Linux x86_64) "
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/124.0.0.0 Safari/537.36"
             ),
             locale="pt-PT",
             viewport={"width": 1280, "height": 800},
+            extra_http_headers={
+                "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": '"macOS"',
+            },
+        )
+        # Esconder navigator.webdriver (detectado pelo Cloudflare)
+        await context.add_init_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         )
         page = await context.new_page()
+
+        # Seletores CSS por site — indicam que os cards de produto carregaram
+        SITE_PRODUCT_SELECTORS = {
+            "Worten":        "[class*='product-card'], [class*='product-item'], .w-product",
+            "Rádio Popular": "article.js-trigger-href, [class*='product-card']",
+            "Darty":         "[class*='product-card'], [data-ref*='product'], .article",
+            "MEO":           "[class*='product-card'], [class*='product-item'], .product",
+            "Vodafone":      "[class*='product-card'], [class*='product-item'], .product",
+            "NOS":           "app-product-card, [class*='product-card'], [class*='equipment']",
+        }
 
         for category, models in CATALOGUE.items():
             results.setdefault(category, {})
@@ -557,9 +580,16 @@ async def scrape_all_async() -> dict:
                             # Alguns sites precisam de networkidle para carregar resultados via JS
                             wait_mode = "networkidle" if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else "domcontentloaded"
                             await page.goto(url, wait_until=wait_mode, timeout=25000)
-                            # Espera extra para JS renderizar os resultados
-                            extra_wait = 4000 if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else 2500
+                            # Espera extra base
+                            extra_wait = 3000 if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else 2000
                             await page.wait_for_timeout(extra_wait)
+                            # Tentar aguardar pelos cards de produto (JS frameworks)
+                            site_sel = SITE_PRODUCT_SELECTORS.get(site, "")
+                            if site_sel:
+                                try:
+                                    await page.wait_for_selector(site_sel, timeout=8000)
+                                except Exception:
+                                    pass  # timeout — continuar com o que temos
                             html = await page.content()
 
                             # Se não é override, tentar navegar para a página do produto
