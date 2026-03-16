@@ -292,17 +292,20 @@ def extract_prices_from_html(html: str) -> list[float]:
         for hit in re.findall(pat, html):
             add(_parse_pt_price(hit))
 
-    # 6. Rádio Popular — <select name="modp"> com data-total nas opções de pagamento
-    # O preço de compra à vista está na opção com value="1" (pagamento único / compra fim mês)
-    for select in soup.find_all("select", {"name": "modp"}):
-        opt = select.find("option", {"value": "1"})
-        if not opt:
-            opts = select.find_all("option")
-            opt = opts[-1] if opts else None
-        if opt:
-            total = opt.get("data-total", "")
-            if total:
-                add(_parse_pt_price(total))
+    # 6. Rádio Popular — <select name="modp"> com data-total nas opcoes de pagamento
+    # O preco de compra a vista esta na opcao com value="1"
+    pat_sel = re.compile(r'<select[^>]*name=["\']modp["\'][^>]*>(.*?)</select>', re.DOTALL)
+    pat_v1  = re.compile(r'<option[^>]*value=["\']1["\'][^>]*data-total=["\']([^"\']+)["\']')
+    pat_dt  = re.compile(r'<option[^>]*data-total=["\']([^"\']+)["\']')
+    for sel_m in pat_sel.finditer(html):
+        sel_html = sel_m.group(1)
+        m = pat_v1.search(sel_html)
+        if m:
+            add(_parse_pt_price(m.group(1)))
+        else:
+            all_dt = pat_dt.findall(sel_html)
+            if all_dt:
+                add(_parse_pt_price(all_dt[-1]))
 
     return sorted(found)
 
