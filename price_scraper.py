@@ -88,7 +88,9 @@ class PriceResult:
 # ─────────────────────────────────────────────
 
 def parse_price(text: str) -> tuple[Optional[float], str]:
-    """Extrai valor numérico e moeda de uma string de preço."""
+    """Extrai valor numérico e moeda de uma string de preço.
+    Suporta: '1.234,56', '1,234.56', '1234.56', '899,99', '999' (inteiro).
+    """
     if not text:
         return None, "EUR"
     text = text.strip().replace("\xa0", " ").replace("\u202f", "")
@@ -101,15 +103,19 @@ def parse_price(text: str) -> tuple[Optional[float], str]:
     elif "€" in text or "EUR" in text.upper():
         currency = "EUR"
 
-    # Remove símbolos e extrai número
     cleaned = re.sub(r"[^\d.,]", "", text)
-    # Normaliza separadores: "1.234,56" → 1234.56 | "1,234.56" → 1234.56
+
+    # Formato PT com milhar: 1.234,56 ou 1.234 (sem decimais)
     if re.search(r"\d{1,3}(\.\d{3})+(,\d+)?$", cleaned):
         cleaned = cleaned.replace(".", "").replace(",", ".")
+    # Formato EN com milhar: 1,234.56 ou 1,234
     elif re.search(r"\d{1,3}(,\d{3})+(\.\d+)?$", cleaned):
         cleaned = cleaned.replace(",", "")
-    else:
+    # Só vírgula decimal: 899,99
+    elif re.search(r"^\d+,\d{1,2}$", cleaned):
         cleaned = cleaned.replace(",", ".")
+    # Já está normalizado: 1234.56 ou 1234
+    # else: não fazer nada
 
     try:
         return float(cleaned), currency

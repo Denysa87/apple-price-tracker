@@ -106,19 +106,48 @@ def search_url(site: str, query: str) -> str:
 
 SITES = ["Worten", "Rádio Popular", "Darty", "MEO", "Vodafone", "NOS"]
 
-# ─────────────────────────────────────────────────────────────
 # Extracção de preços — estratégia unificada para todos os sites
 # ─────────────────────────────────────────────────────────────
+
+def _parse_pt_price(text: str) -> Optional[float]:
+    """
+    Converte texto de preço PT/FR para float.
+    Suporta: '1.299,99', '899,99', '1299.99', inteiros como '999'.
+    """
+    try:
+        cleaned = re.sub(r'[€$\s\xa0\u202f]', '', str(text))
+        # Milhar com ponto e decimal com vírgula: 1.299,99
+        if re.search(r'\d\.\d{3},', cleaned):
+            cleaned = cleaned.replace('.', '').replace(',', '.')
+        # Milhar com vírgula e decimal com ponto: 1,299.99
+        elif re.search(r'\d,\d{3}\.', cleaned):
+            cleaned = cleaned.replace(',', '')
+        # Ponto com exatamente 3 dígitos após = milhar: 1.299
+        elif re.search(r'^\d{1,3}\.\d{3}$', cleaned):
+            cleaned = cleaned.replace('.', '')
+        else:
+            # Só vírgula decimal: 899,99
+            cleaned = cleaned.replace(',', '.')
+        match = re.search(r'\d+\.?\d*', cleaned)
+        return float(match.group()) if match else None
+    except (ValueError, AttributeError):
+        return None
+
 
 def extract_prices_from_html(html: str) -> list[float]:
     """
     Extrai preços do HTML renderizado usando múltiplas estratégias:
     1. JSON-LD schema.org (MEO, Rádio Popular, etc.)
-    2. itemprop="price" (Rádio Popular, Worten)
-    3. Padrões em JSON embebido no JS (Vodafone, Worten, NOS)
-    4. Padrões inline no HTML (qualquer site)
+    2. __NEXT_DATA__ (Next.js — Worten, NOS)
+    3. itemprop="price" (Rádio Popular, Worten)
+    4. Padrões em JSON embebido no JS (Vodafone, Worten, NOS)
+    5. Padrões inline no HTML (qualquer site)
     """
     found = set()
+
+    def add(v):
+        if v is not None and 50 < v < 10000:
+            found.add(round(v, 2))
 
     # 1. JSON-LD schema.org
     for jld in re.findall(
@@ -127,71 +156,58 @@ def extract_prices_from_html(html: str) -> list[float]:
     ):
         try:
             d = json.loads(jld)
-            # pode ser um objecto ou lista
             items = d if isinstance(d, list) else [d]
             for item in items:
-                raw = json.dumps(item)
-                # preço directo em offers
-                for m in re.findall(r'"price"\s*:\s*(\d{3,5}\.?\d{0,2})', raw):
-                    v = float(m)
-                    if 50 < v < 10000:
-                        found.add(round(v, 2))
+                if not isinstance(item, dict):
+                    continue
+                offers = item.get('offers', {})
+                if isinstance(offers, list):
+                    offers = offers[0] if offers else {}
+                for key in ('price', 'lowPrice', 'highPrice'):
+                    val = offers.get(key)
+                    if val is not None:
+                        add(_parse_pt_price(str(val)))
         except Exception:
             pass
 
-    # 2. itemprop="price" content="..."
-    for m in re.findall(
-        r'itemprop=["\']price["\'][^>]*content=["\']([0-9.,]+)["\']', html
-    ):
+    # 2. __NEXT_DATA__ (Next.js)
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if m:
         try:
-            v = float(m.replace('.', '').replace(',', '.'))
-            if 50 < v < 10000:
-                found.add(round(v, 2))
+            raw = json.dumps(json.loads(m.group(1)))
+            for hit in re.findall(
+                r'"(?:price|currentPrice|salePrice|finalPrice|pvp|amount)"\s*:\s*"?(\d{2,5}(?:[.,]\d{1,3})*)"?',
+                raw, re.IGNORECASE
+            ):
+                add(_parse_pt_price(hit))
         except Exception:
             pass
-    # variante: content="..." itemprop="price"
-    for m in re.findall(
-        r'content=["\']([0-9.,]+)["\'][^>]*itemprop=["\']price["\']', html
+
+    # 3. itemprop="price" content="..."
+    for pat in [
+        r'itemprop=["\']price["\'][^>]*content=["\']([0-9.,]+)["\']',
+        r'content=["\']([0-9.,]+)["\'][^>]*itemprop=["\']price["\']',
+    ]:
+        for hit in re.findall(pat, html):
+            add(_parse_pt_price(hit))
+
+    # 4. JSON embebido — padrões comuns em SPAs
+    for hit in re.findall(
+        r'"(?:price|salePrice|finalPrice|pvp|regularPrice|amount|displayPrice|currentPrice)"\s*:\s*"?(\d{2,5}(?:[.,]\d{1,3})*)"?',
+        html, re.IGNORECASE
     ):
-        try:
-            v = float(m.replace('.', '').replace(',', '.'))
-            if 50 < v < 10000:
-                found.add(round(v, 2))
-        except Exception:
-            pass
+        add(_parse_pt_price(hit))
 
-    # 3. JSON embebido — padrões comuns em SPAs
+    # 5. Preços inline visíveis no HTML (formato PT e FR)
     for pat in [
-        r'"price"\s*:\s*(\d{3,5}\.\d{2})',          # "price": 1499.99
-        r'"salePrice"\s*:\s*(\d{3,5}\.\d{2})',
-        r'"finalPrice"\s*:\s*(\d{3,5}\.\d{2})',
-        r'"pvp"\s*:\s*(\d{3,5}\.\d{2})',
-        r'"regularPrice"\s*:\s*(\d{3,5}\.\d{2})',
-        r'"amount"\s*:\s*(\d{3,5}\.\d{2})',
-        r'"displayPrice"\s*:\s*"(\d{3,5}[.,]\d{2})"',
+        r'[\s>"\'<](\d{1,2}\.\d{3},\d{2})\s*€',   # 1.499,99 €
+        r'[\s>"\'<](\d{3,4},\d{2})\s*€',            # 899,99 €
+        r'€\s*(\d{3,4},\d{2})[\s<"\'=]',            # € 899,99
+        r'[\s>"\'<](\d{3,4}\.\d{2})\s*€',           # 899.99 € (formato FR/EN)
+        r'[\s>"\'<](\d{3,4})\s*€',                  # 999 € (inteiros)
     ]:
-        for m in re.findall(pat, html, re.IGNORECASE):
-            try:
-                v = float(str(m).replace(',', '.'))
-                if 50 < v < 10000:
-                    found.add(round(v, 2))
-            except Exception:
-                pass
-
-    # 4. Preços inline visíveis no HTML (formato PT e FR)
-    for pat in [
-        r'>(\d{1}\.\d{3},\d{2})\s*€',   # >1.499,99 €
-        r'>(\d{3,4},\d{2})\s*€',          # >1499,99 €
-        r'€\s*(\d{3,4},\d{2})<',          # € 1499,99<
-        r'>(\d{3,4}\.\d{2})\s*€',          # >1499.99 € (formato FR)
-    ]:
-        for m in re.findall(pat, html):
-            try:
-                v = float(m.replace('.', '').replace(',', '.'))
-                if 50 < v < 10000:
-                    found.add(round(v, 2))
-            except Exception:
-                pass
+        for hit in re.findall(pat, html):
+            add(_parse_pt_price(hit))
 
     return sorted(found)
 
