@@ -21,6 +21,89 @@ from typing import Optional
 
 DATA_FILE      = Path(__file__).parent / "prices.json"
 OVERRIDES_FILE = Path(__file__).parent / "url_overrides.json"
+SUGGESTIONS_FILE       = Path(__file__).parent / "url_suggestions.json"
+OVERRIDE_FAILURES_FILE = Path(__file__).parent / "url_override_failures.json"
+
+# ─────────────────────────────────────────────────────────────
+# Sistema híbrido de memória de URLs
+# ─────────────────────────────────────────────────────────────
+
+class URLMemory:
+    """Regista URLs que funcionaram e rastreia falhas de overrides."""
+
+    FAILURE_THRESHOLD = 3
+
+    def __init__(self):
+        self.suggestions = self._load(SUGGESTIONS_FILE)
+        self.failures    = self._load(OVERRIDE_FAILURES_FILE)
+
+    def _load(self, path: Path) -> dict:
+        if path.exists():
+            try:
+                with open(path, encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+        return {}
+
+    def _save(self, data: dict, path: Path) -> None:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def record_success(self, key: str, site: str, url: str, price: float) -> None:
+        """Regista URL que funcionou como sugestão para consulta futura."""
+        self.suggestions.setdefault(key, {})
+        existing = self.suggestions[key].get(site, {})
+        self.suggestions[key][site] = {
+            "url":          url,
+            "last_price":   price,
+            "last_seen":    datetime.now().strftime("%Y-%m-%d"),
+            "times_worked": existing.get("times_worked", 0) + 1,
+        }
+        self.reset_override_failure(key, site)
+        self._save(self.suggestions, SUGGESTIONS_FILE)
+
+    def reset_override_failure(self, key: str, site: str) -> None:
+        """Limpa contador de falhas quando override volta a funcionar."""
+        if key in self.failures and site in self.failures.get(key, {}):
+            del self.failures[key][site]
+            if not self.failures[key]:
+                del self.failures[key]
+            self._save(self.failures, OVERRIDE_FAILURES_FILE)
+
+    def handle_override_failure(self, key: str, site: str, overrides: dict) -> None:
+        """Regista falha de override e remove-o ao atingir o threshold."""
+        self.failures.setdefault(key, {})
+        self.failures[key][site] = self.failures[key].get(site, 0) + 1
+        count = self.failures[key][site]
+        self._save(self.failures, OVERRIDE_FAILURES_FILE)
+
+        if count >= self.FAILURE_THRESHOLD:
+            print(f"\n      ⚠️  Override \"{key}\" / {site} falhou {count}x — a remover automaticamente.")
+            if key in overrides and site in overrides[key]:
+                del overrides[key][site]
+            try:
+                if OVERRIDES_FILE.exists():
+                    with open(OVERRIDES_FILE, encoding="utf-8") as f:
+                        raw = json.load(f)
+                    if key in raw and site in raw.get(key, {}):
+                        del raw[key][site]
+                        if not raw[key]:
+                            del raw[key]
+                        with open(OVERRIDES_FILE, "w", encoding="utf-8") as f:
+                            json.dump(raw, f, ensure_ascii=False, indent=2)
+                        print(f"      🗑️  Removido de url_overrides.json — tracker volta ao automático.")
+            except Exception:
+                pass
+            del self.failures[key][site]
+            if not self.failures[key]:
+                del self.failures[key]
+            self._save(self.failures, OVERRIDE_FAILURES_FILE)
+        else:
+            remaining = self.FAILURE_THRESHOLD - count
+            suffix = " — será removido na próxima falha" if remaining == 1 else ""
+            print(f" ⚠️  override falhou ({count}/{self.FAILURE_THRESHOLD}){suffix}", end="")
+
 
 # ─────────────────────────────────────────────────────────────
 # Catálogo de produtos
@@ -212,6 +295,125 @@ def extract_prices_from_html(html: str) -> list[float]:
     return sorted(found)
 
 
+def find_product_url(html: str, query: str, site: str, base_url: str) -> Optional[str]:
+    """
+    Extrai o URL da página de produto mais relevante da página de resultados.
+    Cada site tem os seus seletores específicos.
+    Devolve o URL absoluto do produto ou None.
+    """
+    from bs4 import BeautifulSoup
+    soup = BeautifulSoup(html, 'lxml')
+    query_lower = query.lower()
+
+    # Tokens relevantes da query (ignora palavras curtas)
+    tokens = [t for t in query_lower.split() if len(t) > 2]
+
+    def relevance(title: str) -> int:
+        """Conta quantos tokens da query aparecem no título."""
+        t = title.lower()
+        return sum(1 for tok in tokens if tok in t)
+
+    def make_absolute(href: str) -> str:
+        if not href:
+            return ""
+        if href.startswith("http"):
+            return href
+        return base_url.rstrip("/") + "/" + href.lstrip("/")
+
+    candidates = []  # lista de (relevance_score, url, title)
+
+    if site == "Worten":
+        # Cards: <li> ou <div> com classe que contém 'product'
+        # Link: <a> dentro do card com href que contém '/produtos/' ou '/p/'
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if "/produtos/" in href or "/p/" in href:
+                title = a.get_text(strip=True) or a.get("title", "") or href
+                score = relevance(title)
+                if score > 0:
+                    candidates.append((score, make_absolute(href), title[:80]))
+
+    elif site == "Rádio Popular":
+        # Cards: <article class="discount-product"> com data-href
+        for article in soup.find_all("article", class_=lambda c: c and "discount-product" in c):
+            # Tentar data-href primeiro, depois primeiro <a>
+            href = article.get("data-href", "")
+            if not href:
+                a = article.find("a", href=True)
+                href = a.get("href", "") if a else ""
+            # Título
+            title_el = article.find(["h2", "h3", "h4"]) or article.find("a")
+            title = title_el.get_text(strip=True) if title_el else href
+            # URLs de redirect: /links/?id_link= — resolver se possível, ou usar href direto de /produto/
+            direct = article.find("a", href=lambda h: h and "/produto/" in h)
+            if direct:
+                href = direct.get("href", href)
+            score = relevance(title)
+            if score > 0 and href:
+                candidates.append((score, make_absolute(href), title[:80]))
+        # Fallback: qualquer link /produto/ na página
+        if not candidates:
+            for a in soup.find_all("a", href=lambda h: h and "/produto/" in h):
+                title = a.get_text(strip=True) or a.get("title", "") or ""
+                score = relevance(title)
+                candidates.append((score, make_absolute(a["href"]), title[:80]))
+
+    elif site == "Darty":
+        # Cards: <div> ou <article> com classe 'product' ou 'article'
+        # Links: href com '/nav/achat/' ou '/produit/'
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if "/nav/achat/" in href or "/produit/" in href or "/p/" in href:
+                title = a.get_text(strip=True) or a.get("title", "") or href
+                score = relevance(title)
+                if score > 0:
+                    candidates.append((score, make_absolute(href), title[:80]))
+
+    elif site == "MEO":
+        # Links: href com '/telemoveis/' ou '/equipamentos/' ou slug de produto
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if any(p in href for p in ["/telemoveis/", "/equipamentos/", "/acessorios/", "/produto/"]):
+                title = a.get_text(strip=True) or a.get("title", "") or ""
+                # Também verificar atributo data-name ou aria-label
+                if not title:
+                    title = a.get("aria-label", "") or a.get("data-name", "") or href
+                score = relevance(title)
+                if score > 0:
+                    candidates.append((score, make_absolute(href), title[:80]))
+
+    elif site == "Vodafone":
+        # Links: href com '/loja/telemoveis/' ou '/equipamentos/'
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if any(p in href for p in ["/loja/telemoveis/", "/equipamentos/", "/produto/"]):
+                title = a.get_text(strip=True) or a.get("title", "") or a.get("aria-label", "") or ""
+                score = relevance(title)
+                if score > 0:
+                    candidates.append((score, make_absolute(href), title[:80]))
+
+    elif site == "NOS":
+        # Links: href com '/particulares/equipamentos/' ou '/telemovel/'
+        for a in soup.find_all("a", href=True):
+            href = a.get("href", "")
+            if any(p in href for p in ["/particulares/equipamentos/", "/telemovel/", "/equipamento/"]):
+                title = a.get_text(strip=True) or a.get("title", "") or a.get("aria-label", "") or ""
+                score = relevance(title)
+                if score > 0:
+                    candidates.append((score, make_absolute(href), title[:80]))
+
+    if not candidates:
+        return None
+
+    # Ordenar por relevância (maior primeiro), desempate pelo URL mais curto (página de produto mais directa)
+    candidates.sort(key=lambda x: (-x[0], len(x[1])))
+    best_url = candidates[0][1]
+    best_title = candidates[0][2]
+    print(f" → produto: {best_title[:50]}…" if len(best_title) > 50 else f" → produto: {best_title}", end="")
+    return best_url
+
+
+
 def best_match(prices: list[float], query: str) -> Optional[float]:
     """
     De uma lista de preços extraídos de uma página de pesquisa,
@@ -246,7 +448,14 @@ def best_match(prices: list[float], query: str) -> Optional[float]:
 async def scrape_all_async() -> dict:
     from playwright.async_api import async_playwright
 
-    results = {}  # { category: { "Model Variant": { site: [{date,price,url}] } } }
+    memory = URLMemory()
+    overrides = {}
+    if OVERRIDES_FILE.exists():
+        with open(OVERRIDES_FILE, encoding="utf-8") as f:
+            raw_ov = json.load(f)
+            overrides = {k: v for k, v in raw_ov.items() if not k.startswith("_")}
+
+    results = {}  # { category:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     async with async_playwright() as p:
@@ -281,45 +490,60 @@ async def scrape_all_async() -> dict:
                     print(f"  🔍  {key}")
 
                     for site in SITES:
-                        # Usa override se existir, senão URL de pesquisa automático
-                        overrides = {}
-                        if OVERRIDES_FILE.exists():
-                            with open(OVERRIDES_FILE, encoding="utf-8") as f:
-                                raw = json.load(f)
-                                overrides = {k: v for k, v in raw.items() if not k.startswith("_")}
                         override_url = overrides.get(key, {}).get(site)
                         url = override_url if override_url else search_url(site, query)
                         is_override = bool(override_url)
                         flag = "🔗" if is_override else "📡"
                         print(f"      {flag}  {site}{'  [override]' if is_override else ''}...", end=" ", flush=True)
                         try:
-                            await page.goto(
-                                url,
-                                wait_until="domcontentloaded",
-                                timeout=20000,
-                            )
-                            # aguarda que o conteúdo dinâmico carregue
+                            await page.goto(url, wait_until="domcontentloaded", timeout=20000)
                             await page.wait_for_timeout(2500)
                             html = await page.content()
+
+                            # Se não é override, tentar navegar para a página do produto
+                            if not is_override:
+                                site_bases = {
+                                    "Worten":        "https://www.worten.pt",
+                                    "Rádio Popular": "https://www.radiopopular.pt",
+                                    "Darty":         "https://www.darty.com",
+                                    "MEO":           "https://loja.meo.pt",
+                                    "Vodafone":      "https://www.vodafone.pt",
+                                    "NOS":           "https://www.nos.pt",
+                                }
+                                product_url = find_product_url(html, query, site, site_bases.get(site, ""))
+                                if product_url and product_url != page.url:
+                                    try:
+                                        await page.goto(product_url, wait_until="domcontentloaded", timeout=15000)
+                                        await page.wait_for_timeout(2000)
+                                        html = await page.content()
+                                    except Exception:
+                                        pass  # Se falhar, usa o HTML da pesquisa
                             prices = extract_prices_from_html(html)
                             price = best_match(prices, query)
 
                             if price:
                                 results[category][key].setdefault(site, [])
                                 results[category][key][site].append({
-                                    "date":        ts,
-                                    "price":       price,
-                                    "url":         page.url,
-                                    "url_source":  "override" if is_override else "auto",
+                                    "date":       ts,
+                                    "price":      price,
+                                    "url":        page.url,
+                                    "url_source": "override" if is_override else "auto",
                                 })
                                 print(f"✅  {price:.2f} €")
+                                if not is_override:
+                                    memory.record_success(key, site, page.url, price)
+                                else:
+                                    memory.reset_override_failure(key, site)
                             else:
                                 print(f"—  sem resultado {prices[:3]}")
+                                if is_override:
+                                    memory.handle_override_failure(key, site, overrides)
 
                         except Exception as e:
                             print(f"❌  {str(e)[:60]}")
+                            if is_override:
+                                memory.handle_override_failure(key, site, overrides)
 
-                        # delay entre pedidos para não ser bloqueado
                         await asyncio.sleep(random.uniform(1.0, 2.5))
 
         # ── Programas de fidelização ─────────────────────────────
@@ -334,12 +558,7 @@ async def scrape_all_async() -> dict:
             for program, _ in programs.items():
                 url = PROGRAM_URLS[program](key)
                 # Verifica override
-                overrides_local = {}
-                if OVERRIDES_FILE.exists():
-                    with open(OVERRIDES_FILE, encoding="utf-8") as f:
-                        raw = json.load(f)
-                        overrides_local = {k: v for k, v in raw.items() if not k.startswith("_")}
-                override_url = overrides_local.get(key, {}).get(program)
+                override_url = overrides.get(key, {}).get(program)
                 if override_url:
                     url = override_url
 
@@ -382,8 +601,14 @@ async def scrape_all_async() -> dict:
                         })
                         pts_str = f" · {points} pts" if points else ""
                         print(f"✅  {price:.2f} €{pts_str}")
+                        if not override_url:
+                            memory.record_success(key, program, page.url, price)
+                        else:
+                            memory.reset_override_failure(key, program)
                     else:
                         print(f"—  sem resultado")
+                        if override_url:
+                            memory.handle_override_failure(key, program, overrides)
 
                 except Exception as e:
                     print(f"❌  {str(e)[:60]}")
