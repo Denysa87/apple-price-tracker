@@ -19,6 +19,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+try:
+    from playwright_stealth import stealth_async as _stealth_async
+    STEALTH_AVAILABLE = True
+except ImportError:
+    STEALTH_AVAILABLE = False
+
+
 DATA_FILE      = Path(__file__).parent / "prices.json"
 OVERRIDES_FILE = Path(__file__).parent / "url_overrides.json"
 SUGGESTIONS_FILE       = Path(__file__).parent / "url_suggestions.json"
@@ -580,6 +587,8 @@ async def scrape_all_async() -> dict:
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         )
         page = await context.new_page()
+        if STEALTH_AVAILABLE:
+            await _stealth_async(page)
 
         # Seletores CSS por site — indicam que os cards de produto carregaram
         SITE_PRODUCT_SELECTORS = {
@@ -624,10 +633,13 @@ async def scrape_all_async() -> dict:
                                 except Exception:
                                     pass  # timeout — continuar com o que temos
                             html = await page.content()
-                            # Detectar Cloudflare — skip imediato
+                            # Detectar Cloudflare IUAM — esperar 8s para o challenge JS completar
                             if is_cloudflare_blocked(html):
-                                print(f"⛔  Cloudflare (IP bloqueado)")
-                                continue
+                                await page.wait_for_timeout(8000)
+                                html = await page.content()
+                                if is_cloudflare_blocked(html):
+                                    print(f"⛔  Cloudflare")
+                                    continue
 
                             # Se não é override, tentar navegar para a página do produto
                             if not is_override:
