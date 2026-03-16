@@ -307,6 +307,35 @@ def extract_prices_from_html(html: str) -> list[float]:
             if all_dt:
                 add(_parse_pt_price(all_dt[-1]))
 
+
+    # 7. Worten — aria-label="Preco 149,99" em <span>
+    pat_aria = re.compile(r'aria-label=["\']Prec[oô]\s+([\d.,]+)["\']')
+    for m in pat_aria.finditer(html):
+        add(_parse_pt_price(m.group(1)))
+
+    # 8. Open Graph — <meta property="og:price:amount" content="149,99">
+    pat_og = re.compile(r'<meta[^>]*property=["\']og:price:amount["\'][^>]*content=["\']([\d.,]+)["\']')
+    pat_og2 = re.compile(r'<meta[^>]*content=["\']([\d.,]+)["\'][^>]*property=["\']og:price:amount["\']')
+    for pat in [pat_og, pat_og2]:
+        for m in pat.finditer(html):
+            add(_parse_pt_price(m.group(1)))
+
+    # 9. MEO — <span class="price no-translate"><span>€149,99</span>
+    pat_meo = re.compile(r'class=["\']price no-translate["\'][^>]*>\s*<span>€?([\d.,]+)\s*€?</span>')
+    for m in pat_meo.finditer(html):
+        add(_parse_pt_price(m.group(1)))
+
+    # 10. NOS — Angular ng-bind, preco em <p class="full-price ng-binding">149,99</p>
+    # O Playwright executa JS entao o conteudo do ng-bind ja esta resolvido no HTML
+    pat_nos = re.compile(r'<p[^>]*class=["\'][^"\']*full-price[^"\']*["\'][^>]*>\s*([\d.,]+)\s*</p>')
+    for m in pat_nos.finditer(html):
+        add(_parse_pt_price(m.group(1)))
+
+    # 11. Vodafone — <span class="basket-toaster__price--value ...">€149,90</span>
+    pat_voda = re.compile(r'<span[^>]*basket-toaster__price--value[^>]*>\s*€?([\d.,]+)\s*€?\s*</span>')
+    for m in pat_voda.finditer(html):
+        add(_parse_pt_price(m.group(1)))
+
     return sorted(found)
 
 
