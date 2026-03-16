@@ -503,6 +503,37 @@ def best_match(prices: list[float], query: str) -> Optional[float]:
 # Playwright scraper (async)
 # ─────────────────────────────────────────────────────────────
 
+async def dismiss_cookie_banner(page) -> None:
+    """Tenta fechar o banner de cookies se presente."""
+    selectors = [
+        "#onetrust-accept-btn-handler",
+        "button#acceptAllCookies",
+        "button[id*='accept-all']",
+        "button[id*='acceptAll']",
+        "button[class*='accept-all']",
+        "button[class*='acceptAll']",
+        "button:has-text('Aceitar todos os cookies')",
+        "button:has-text('Aceitar tudo')",
+        "button:has-text('Aceitar todos')",
+        "button:has-text('Accept all')",
+        "[class*='cookie'] button[class*='primary']",
+        "[class*='cookie-banner'] button",
+        "[class*='gdpr'] button[class*='accept']",
+    ]
+    for sel in selectors:
+        try:
+            await page.click(sel, timeout=1500)
+            await page.wait_for_timeout(600)
+            return
+        except Exception:
+            continue
+
+
+def is_cloudflare_blocked(html: str) -> bool:
+    """Detecta se a página é um desafio Cloudflare."""
+    h = html.lower()
+    return "cloudflare" in h and ("challenge" in h or "ray id" in h or "just a moment" in h)
+
 async def scrape_all_async() -> dict:
     from playwright.async_api import async_playwright
 
@@ -580,6 +611,8 @@ async def scrape_all_async() -> dict:
                             # Alguns sites precisam de networkidle para carregar resultados via JS
                             wait_mode = "networkidle" if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else "domcontentloaded"
                             await page.goto(url, wait_until=wait_mode, timeout=25000)
+                            # Fechar banner de cookies antes de tudo
+                            await dismiss_cookie_banner(page)
                             # Espera extra base
                             extra_wait = 3000 if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else 2000
                             await page.wait_for_timeout(extra_wait)
@@ -591,6 +624,10 @@ async def scrape_all_async() -> dict:
                                 except Exception:
                                     pass  # timeout — continuar com o que temos
                             html = await page.content()
+                            # Detectar Cloudflare — skip imediato
+                            if is_cloudflare_blocked(html):
+                                print(f"⛔  Cloudflare (IP bloqueado)")
+                                continue
 
                             # Se não é override, tentar navegar para a página do produto
                             if not is_override:
