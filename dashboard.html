@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Apple Price Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* ── Reset & tokens ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --white:   #ffffff;
+  --f5:      #f5f5f7;
+  --f0:      #f0f0f2;
+  --e8:      #e8e8ed;
+  --d2:      #d2d2d7;
+  --b0:      #b0b0b8;
+  --86:      #86868b;
+  --6e:      #6e6e73;
+  --1d:      #1d1d1f;
+  --blue:    #0071e3;
+  --blue-h:  #0077ed;
+  --green:   #1d8348;
+  --red:     #c0392b;
+  --radius:  18px;
+  --radius-s: 12px;
+  --font: "Inter", -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+  --shadow-s: 0 2px 12px rgba(0,0,0,.06);
+  --shadow-m: 0 4px 24px rgba(0,0,0,.09);
+  --shadow-l: 0 8px 40px rgba(0,0,0,.12);
+  --transition: all .22s cubic-bezier(.25,.46,.45,.94);
+}
+
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body  { background: var(--f5); color: var(--1d); font-family: var(--font); line-height: 1.5; min-height: 100vh; }
+
+/* ── Nav bar ─────────────────────────────────────────────── */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--e8);
+  padding: 0 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 52px;
+}
+.nav-logo {
+  font-size: 1.35rem; font-weight: 700; color: var(--1d);
+  display: flex; align-items: center; gap: 8px; text-decoration: none;
+  letter-spacing: -.4px;
+}
+.nav-logo svg { width: 20px; height: 20px; fill: var(--1d); }
+.nav-meta { font-size: .78rem; color: var(--86); }
+.nav-meta span { color: var(--blue); font-weight: 500; }
+.btn-excel {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: 8px; font-size: .82rem; font-weight: 600;
+  background: #1d6f42; color: #fff; border: none; cursor: pointer;
+  transition: var(--transition); white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(29,111,66,.25);
+}
+.btn-excel:hover { background: #19603a; box-shadow: 0 2px 10px rgba(29,111,66,.35); }
+
+/* ── Hero ────────────────────────────────────────────────── */
+.hero {
+  background: var(--white);
+  border-bottom: 1px solid var(--e8);
+  padding: 28px 40px 24px;
+  text-align: center;
+}
+.hero-eyebrow {
+  font-size: .78rem; font-weight: 600; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--blue); margin-bottom: 12px;
+}
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700;
+  letter-spacing: -.04em; color: var(--1d); line-height: 1.1;
+  margin-bottom: 14px;
+}
+.hero p {
+  font-size: 1.05rem; color: var(--6e); font-weight: 300;
+  max-width: 520px; margin: 0 auto 32px; line-height: 1.7;
+}
+.hero-sites {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+}
+.site-dot {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--f5); border: 1px solid var(--e8);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: .78rem; font-weight: 500; color: var(--6e);
+}
+.site-dot::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--dot-color, #86868b);
+}
+
+/* ── Main layout ─────────────────────────────────────────── */
+main { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; }
+
+/* ── Section title ───────────────────────────────────────── */
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 8px;
+}
+.section-head h2 {
+  font-size: 1.25rem; font-weight: 700; letter-spacing: -.03em; color: var(--1d);
+}
+.section-head p { font-size: .82rem; color: var(--86); }
+.divider-line { height: 1px; background: var(--e8); margin-bottom: 28px; }
+
+/* ── Category nav ────────────────────────────────────────── */
+.cat-nav {
+  display: flex; gap: 2px; background: var(--f0);
+  border: 1px solid var(--e8); border-radius: 12px; padding: 4px;
+  margin-bottom: 32px; width: fit-content;
+}
+.cat-btn {
+  padding: 8px 20px; border-radius: 9px; font-size: .88rem; font-weight: 500;
+  border: none; background: transparent; color: var(--6e); cursor: pointer;
+  transition: var(--transition); display: flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.cat-btn:hover { color: var(--1d); }
+.cat-btn.active {
+  background: var(--white); color: var(--1d); font-weight: 600;
+  box-shadow: var(--shadow-s);
+}
+.cat-btn[data-cat="Programas"].active {
+  background: #fef3c722; border-color: #f59e0b; color: #92400e;
+}
+
+/* ── Tabela Programas ────────────────────────────────────── */
+.prog-card {
+  background: var(--white); border: 1px solid var(--e8);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 28px;
+  box-shadow: var(--shadow-s);
+}
+.prog-card-head {
+  padding: 20px 24px 14px; border-bottom: 1px solid var(--f0);
+}
+.prog-card-head h3 { font-size: 1.05rem; font-weight: 700; color: var(--1d); letter-spacing: -.02em; }
+.prog-card-head p  { font-size: .8rem; color: var(--86); margin-top: 3px; }
+.prog-badge-nos  { display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:20px;background:#e8f4fd;color:#0c3547; }
+.prog-badge-meo  { display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:20px;background:#e8f5e9;color:#1b5e20; }
+.prog-badge-viv  { display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:20px;background:#fce4ec;color:#880e4f; }
+.prog-pts { font-size:.75rem;color:var(--86);margin-top:2px; }
+.prog-saving { font-size:.72rem;color:var(--green);font-weight:600; }
+
+/* ── Controls strip ──────────────────────────────────────── */
+.controls-strip {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  margin-bottom: 28px;
+}
+.ctrl-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ctrl-sep { width: 1px; height: 20px; background: var(--d2); margin: 0 2px; }
+.ctrl-label { font-size: .72rem; font-weight: 600; color: var(--86); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
+
+/* Model / period pills */
+.pill {
+  padding: 5px 14px; border-radius: 20px; font-size: .82rem; font-weight: 500;
+  border: 1.5px solid var(--d2); background: var(--white); color: var(--6e);
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+}
+.pill:hover { border-color: var(--blue); color: var(--blue); }
+.pill.active { background: var(--blue); border-color: var(--blue); color: var(--white); font-weight: 600; box-shadow: 0 2px 10px rgba(0,113,227,.25); }
+
+/* Variant pills */
+.var-pill {
+  padding: 5px 14px; border-radius: 20px; font-size: .82rem; font-weight: 500;
+  border: 1.5px solid var(--d2); background: var(--white); color: var(--6e);
+  cursor: pointer; transition: var(--transition);
+}
+.var-pill:hover { border-color: var(--1d); color: var(--1d); }
+.var-pill.active { background: var(--1d); border-color: var(--1d); color: var(--white); font-weight: 600; }
+
+/* Site pills */
+.site-pill {
+  padding: 5px 14px; border-radius: 20px; font-size: .79rem; font-weight: 500;
+  border: 1.5px solid var(--d2); background: var(--white); color: var(--6e);
+  cursor: pointer; transition: var(--transition);
+}
+.site-pill.on { color: var(--white); font-weight: 600; }
+
+/* ── Summary cards ───────────────────────────────────────── */
+.cards-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px; margin-bottom: 40px;
+}
+.card {
+  background: var(--white); border: 1px solid var(--e8);
+  border-radius: var(--radius); padding: 22px 24px;
+  position: relative; overflow: hidden;
+  transition: var(--transition); cursor: pointer;
+}
+.card:hover { box-shadow: var(--shadow-m); transform: translateY(-2px); border-color: var(--d2); }
+.card-cat {
+  font-size: .68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .09em; color: var(--86); margin-bottom: 6px;
+}
+.card-variant {
+  display: inline-block; font-size: .72rem; font-weight: 600;
+  background: var(--f5); border: 1px solid var(--e8);
+  border-radius: 6px; padding: 1px 8px; color: var(--6e); margin-bottom: 10px;
+}
+.card-price {
+  font-size: 1.8rem; font-weight: 700; letter-spacing: -.04em; color: var(--1d);
+  line-height: 1.1; margin-bottom: 6px;
+}
+.card-store { font-size: .8rem; color: var(--86); }
+.card-store strong { color: var(--1d); font-weight: 600; }
+.card-badge {
+  position: absolute; top: 16px; right: 16px;
+  font-size: .7rem; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+}
+.badge-new  { background: #e8f0fe; color: var(--blue); }
+.badge-down { background: #e8f5e9; color: var(--green); }
+.badge-up   { background: #fdecea; color: var(--red); }
+.badge-same { background: var(--f5); color: var(--86); }
+
+/* ── Chart card ──────────────────────────────────────────── */
+.chart-card {
+  background: var(--white); border: 1px solid var(--e8);
+  border-radius: var(--radius); padding: 28px; margin-bottom: 28px;
+  box-shadow: var(--shadow-s);
+}
+.chart-card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
+}
+.chart-card-head h3 {
+  font-size: 1.05rem; font-weight: 700; color: var(--1d); letter-spacing: -.02em;
+}
+.chart-card-head p { font-size: .8rem; color: var(--86); margin-top: 3px; }
+.chart-container { position: relative; height: 300px; }
+
+/* ── Table card ──────────────────────────────────────────── */
+.table-card {
+  background: var(--white); border: 1px solid var(--e8);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 28px;
+  box-shadow: var(--shadow-s);
+}
+.table-card-head {
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid var(--f0);
+}
+.table-card-head h3 { font-size: 1.05rem; font-weight: 700; color: var(--1d); letter-spacing: -.02em; }
+.table-card-head p  { font-size: .8rem; color: var(--86); margin-top: 3px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 580px; }
+thead th {
+  padding: 10px 20px; text-align: left;
+  font-size: .72rem; font-weight: 600; color: var(--86);
+  text-transform: uppercase; letter-spacing: .06em;
+  background: var(--f5); border-bottom: 1px solid var(--e8);
+  white-space: nowrap;
+}
+tbody tr { border-bottom: 1px solid var(--f0); transition: background .14s; }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:hover { background: var(--f5); }
+tbody td { padding: 13px 20px; font-size: .88rem; }
+.td-site { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.td-best { color: var(--green); font-weight: 700; font-size: .95rem; }
+.td-down { color: var(--green); font-weight: 600; }
+.td-up   { color: var(--red); font-weight: 600; }
+.td-na   { color: var(--b0); }
+.td-link a {
+  font-size: .8rem; color: var(--blue); text-decoration: none; font-weight: 500;
+  padding: 4px 12px; border: 1.5px solid rgba(0,113,227,.3); border-radius: 20px;
+  transition: var(--transition);
+}
+.td-link a:hover { background: rgba(0,113,227,.06); border-color: var(--blue); }
+
+/* ── Heatmap ─────────────────────────────────────────────── */
+.heatmap-card {
+  background: var(--white); border: 1px solid var(--e8);
+  border-radius: var(--radius); padding: 28px; margin-bottom: 28px;
+  box-shadow: var(--shadow-s);
+}
+.heatmap-card h3 { font-size: 1.05rem; font-weight: 700; color: var(--1d); letter-spacing: -.02em; margin-bottom: 20px; }
+
+/* ── URL Manager ─────────────────────────────────────── */
+.url-card {
+  background: var(--white); border: 1px solid var(--e8);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 28px;
+  box-shadow: var(--shadow-s);
+}
+.url-card-head {
+  padding: 20px 24px 14px; border-bottom: 1px solid var(--f0);
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.url-card-head h3 { font-size: 1.05rem; font-weight: 700; color: var(--1d); letter-spacing: -.02em; }
+.url-card-head p  { font-size: .8rem; color: var(--86); margin-top: 2px; }
+.url-filter {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+}
+.url-filter input {
+  padding: 6px 12px; border-radius: 8px; border: 1.5px solid var(--d2);
+  font-size: .82rem; font-family: var(--font); color: var(--1d);
+  background: var(--white); outline: none; width: 200px;
+  transition: var(--transition);
+}
+.url-filter input:focus { border-color: var(--blue); }
+.btn-dl-overrides {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: 8px; font-size: .82rem; font-weight: 600;
+  background: var(--blue); color: var(--white); border: none; cursor: pointer;
+  transition: var(--transition);
+}
+.btn-dl-overrides:hover { background: var(--blue-h); }
+.url-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+.url-table thead th {
+  background: var(--f5); padding: 10px 16px; text-align: left;
+  font-size: .72rem; font-weight: 600; color: var(--86);
+  text-transform: uppercase; letter-spacing: .06em;
+  border-bottom: 1px solid var(--e8); white-space: nowrap;
+}
+.url-table tbody tr { border-bottom: 1px solid var(--f0); transition: background .14s; }
+.url-table tbody tr:last-child { border-bottom: none; }
+.url-table tbody tr:hover { background: var(--f5); }
+.url-table td { padding: 10px 16px; font-size: .84rem; vertical-align: middle; }
+.url-input {
+  width: 100%; padding: 5px 10px; border-radius: 7px;
+  border: 1.5px solid var(--e8); font-size: .8rem; font-family: monospace;
+  color: var(--1d); background: var(--f5); outline: none;
+  transition: var(--transition);
+}
+.url-input:focus { border-color: var(--blue); background: var(--white); }
+.url-input.is-override { border-color: #f59e0b; background: #fffbeb; }
+.url-input.has-error  { border-color: var(--red); background: #fef2f2; }
+.badge-auto     { font-size: .68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--f5); color: var(--86); }
+.badge-override { font-size: .68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: #fef3c7; color: #92400e; }
+.badge-ok    { font-size: .68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: #d1fae5; color: #065f46; }
+.badge-nodata{ font-size: .68rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--f5); color: var(--b0); }
+.btn-reset-url {
+  padding: 4px 10px; border-radius: 6px; font-size: .75rem; font-weight: 600;
+  border: 1.5px solid var(--d2); background: var(--white); color: var(--86);
+  cursor: pointer; transition: var(--transition); white-space: nowrap;
+}
+.btn-reset-url:hover { border-color: var(--red); color: var(--red); }
+.hm-scroll { overflow-x: auto; }
+.hm-grid { display: grid; gap: 6px; min-width: 620px; }
+.hm-head {
+  background: var(--f5); border-radius: 8px; padding: 8px 10px;
+  font-size: .7rem; font-weight: 700; color: var(--86);
+  text-transform: uppercase; letter-spacing: .05em;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+}
+.hm-label {
+  background: var(--f5); border-radius: 8px; padding: 10px 12px;
+  font-size: .73rem; font-weight: 500; color: var(--1d);
+  display: flex; align-items: center; border: 1px solid var(--f0);
+}
+.hm-cell {
+  border-radius: 8px; padding: 10px 8px; text-align: center;
+  font-size: .82rem; font-weight: 700; border: 1px solid transparent;
+  transition: var(--transition); cursor: pointer;
+}
+.hm-cell:hover { transform: scale(1.06); z-index: 2; box-shadow: var(--shadow-m); }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty {
+  text-align: center; padding: 60px 24px; color: var(--86);
+  grid-column: 1 / -1;
+}
+.empty .icon { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+.empty p  { font-size: .9rem; line-height: 1.7; max-width: 340px; margin: 0 auto; }
+.empty code {
+  display: inline-block; margin-top: 14px;
+  background: var(--f5); border: 1px solid var(--e8);
+  border-radius: 8px; padding: 7px 16px;
+  font-family: "SF Mono", "Fira Code", monospace; font-size: .82rem; color: var(--blue);
+}
+
+/* ── Legend ──────────────────────────────────────────────── */
+.legend {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .75rem; color: var(--6e);
+}
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Footer ──────────────────────────────────────────────── */
+.footer {
+  text-align: center; padding: 28px 16px;
+  border-top: 1px solid var(--e8); margin-top: 20px;
+}
+.footer p { font-size: .78rem; color: var(--86); line-height: 1.8; }
+.footer code { font-family: "SF Mono","Fira Code",monospace; color: var(--blue); font-size: .8rem; }
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--d2); border-radius: 3px; }
+
+@media (max-width: 768px) {
+  .nav { padding: 0 16px; }
+  .hero { padding: 40px 16px 36px; }
+  main { padding: 24px 12px 60px; }
+  .chart-card, .heatmap-card { padding: 18px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <a class="nav-logo" href="#">
+    <svg viewBox="0 0 814 1000" xmlns="http://www.w3.org/2000/svg"><path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-57.8-155.5-127.4C46 376.7 0 248.2 0 124.8 0 56.1 17.6 29 29.7 17.8c11.5-11.6 30.2-17.8 64.7-17.8C166.5 0 268.5 65.5 268.5 65.5h.1C311.9 65.5 429.8 0 548.2 0c27.8 0 118.2 1.9 178.9 66.7l-.9.7C770 102.1 788.1 191.1 788.1 340.9z"/></svg>
+    Price Tracker
+  </a>
+  <div class="nav-meta" style="display:flex;align-items:center;gap:16px">
+    <div style="text-align:right">Atualizado em <span>16 Mar 2026, 10:20</span></div>
+    <button class="btn-excel" onclick="exportExcel()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Exportar Excel
+    </button>
+    <button class="btn-excel" style="background:#6366f1;box-shadow:0 1px 4px rgba(99,102,241,.25)" onclick="openUrlManager()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Gerir URLs
+    </button>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <p class="hero-eyebrow">Portugal · 6 Retalhistas</p>
+  <p>Compara preços de AirPods, iPhone e Apple Watch nos principais retalhistas portugueses.</p>
+  <p style="font-size:.72rem;color:var(--b0);margin-top:8px">⚠️ Preços de referência Apple Store PT. Para preços em tempo real corre <code style="font-family:monospace;color:var(--blue)">python3 scraper.py</code></p>
+  <div class="hero-sites">
+    <span class="site-dot" style="--dot-color:#e63946">Worten</span>
+    <span class="site-dot" style="--dot-color:#f59e0b">Rádio Popular</span>
+    <span class="site-dot" style="--dot-color:#3b82f6">Darty</span>
+    <span class="site-dot" style="--dot-color:#22c55e">MEO</span>
+    <span class="site-dot" style="--dot-color:#ef4444">Vodafone</span>
+    <span class="site-dot" style="--dot-color:#8b5cf6">NOS</span>
+  </div>
+</section>
+
+<!-- ── MAIN ── -->
+<main>
+
+  <!-- Category nav -->
+  <div class="cat-nav" id="cat-nav">
+    <button class="cat-btn active" data-cat="AirPods">🎧 AirPods</button>
+    <button class="cat-btn" data-cat="iPhone">📱 iPhone</button>
+    <button class="cat-btn" data-cat="Apple Watch">⌚ Apple Watch</button>
+    <button class="cat-btn" data-cat="Programas">🎁 Programas</button>
+  </div>
+
+  <!-- Controls strip -->
+  <div class="controls-strip">
+    <span class="ctrl-label">Modelo</span>
+    <div class="ctrl-group" id="model-btns"></div>
+    <div class="ctrl-sep" id="variant-sep" style="display:none"></div>
+    <span class="ctrl-label" id="variant-label" style="display:none">Capacidade</span>
+    <div class="ctrl-group" id="variant-btns"></div>
+    <div class="ctrl-sep"></div>
+    <span class="ctrl-label">Período</span>
+    <div class="ctrl-group">
+      <button class="pill" data-days="7">7 dias</button>
+      <button class="pill active" data-days="30">30 dias</button>
+      <button class="pill" data-days="90">90 dias</button>
+      <button class="pill" data-days="0">Tudo</button>
+      <button class="pill" data-week="1">Por semana</button>
+    </div>
+    <div class="ctrl-sep"></div>
+    <span class="ctrl-label">Loja</span>
+    <div class="ctrl-group" id="site-btns"></div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="section-head">
+    <h2 id="cards-title">Melhor preço por variante</h2>
+    <p id="cards-sub"></p>
+  </div>
+  <div class="cards-grid" id="summary-cards"></div>
+
+  <!-- Chart -->
+  <div class="chart-card" id="section-chart">
+    <div class="chart-card-head">
+      <div>
+        <h3>Evolução de preços</h3>
+        <p id="chart-subtitle">Histórico de preços por retalhista</p>
+      </div>
+      <div class="legend" id="chart-legend"></div>
+    </div>
+    <div class="chart-container"><canvas id="priceChart"></canvas></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card" id="section-table">
+    <div class="table-card-head">
+      <h3>Comparação actual</h3>
+      <p id="table-subtitle">Preços mais recentes registados em cada loja</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Loja</th>
+          <th>Preço</th>
+          <th>Variação 7d</th>
+          <th>Mínimo</th>
+          <th>Máximo</th>
+          <th>Registos</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="heatmap-card" id="section-heatmap">
+    <h3>Visão geral — todos os modelos</h3>
+    <div class="hm-scroll"><div class="hm-grid" id="heatmap"></div></div>
+  </div>
+
+</main>
+
+  <!-- Programas de Fidelização -->
+  <div id="section-programas" style="display:none">
+    <div class="prog-card">
+      <div class="prog-card-head">
+        <h3>🎁 Programas de Fidelização — iPhone</h3>
+        <p>Preços com desconto nos programas NOS DCN, MEO MEOS e Vodafone Viva. Para MEO e Vodafone inclui os pontos necessários.</p>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;min-width:700px">
+          <thead>
+            <tr>
+              <th style="background:var(--f5);padding:10px 16px;text-align:left;font-size:.72rem;font-weight:600;color:var(--86);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--e8)">Modelo</th>
+              <th style="background:var(--f5);padding:10px 16px;text-align:left;font-size:.72rem;font-weight:600;color:var(--86);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--e8)">Variante</th>
+              <th style="background:var(--f5);padding:10px 16px;text-align:left;font-size:.72rem;font-weight:600;color:#0c3547;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--e8)">🔵 NOS DCN</th>
+              <th style="background:var(--f5);padding:10px 16px;text-align:left;font-size:.72rem;font-weight:600;color:#1b5e20;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--e8)">🟢 MEO MEOS</th>
+              <th style="background:var(--f5);padding:10px 16px;text-align:left;font-size:.72rem;font-weight:600;color:#880e4f;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--e8)">🔴 Vodafone Viva</th>
+            </tr>
+          </thead>
+          <tbody id="prog-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- URL Manager Modal -->
+  <div id="url-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);overflow-y:auto">
+    <div style="max-width:1100px;margin:40px auto;background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow-l);overflow:hidden">
+
+      <!-- Modal header -->
+      <div style="padding:22px 28px 18px;border-bottom:1px solid var(--e8);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div>
+          <h2 style="font-size:1.1rem;font-weight:700;color:var(--1d);letter-spacing:-.02em">🔗 Gestão de URLs</h2>
+          <p style="font-size:.8rem;color:var(--86);margin-top:3px">URLs usados pelo scraper. Edita para forçar um link específico quando o automático falha.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="url-search" placeholder="Filtrar produto ou loja…" oninput="filterUrlTable()"
+            style="padding:6px 12px;border-radius:8px;border:1.5px solid var(--d2);font-size:.82rem;font-family:var(--font);color:var(--1d);background:var(--white);outline:none;width:190px"/>
+          <button class="btn-dl-overrides" onclick="downloadOverrides()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Guardar url_overrides.json
+          </button>
+          <button onclick="closeUrlManager()" style="padding:7px 14px;border-radius:8px;border:1.5px solid var(--d2);background:var(--white);font-size:.82rem;font-weight:600;color:var(--6e);cursor:pointer">✕ Fechar</button>
+        </div>
+      </div>
+
+      <!-- Instrução rápida -->
+      <div style="padding:12px 28px;background:var(--f5);border-bottom:1px solid var(--e8);font-size:.78rem;color:var(--6e)">
+        💡 Edita o URL → clica <strong>Guardar url_overrides.json</strong> → coloca o ficheiro na pasta do projecto → faz <code style="font-family:monospace;color:var(--blue)">git push</code>. O próximo scrape usa os URLs manuais.
+      </div>
+
+      <!-- Tabela -->
+      <div style="overflow-x:auto">
+        <table class="url-table">
+          <thead><tr>
+            <th>Produto</th><th>Variante</th><th>Loja</th>
+            <th>Tipo</th><th>Último resultado</th>
+            <th style="min-width:340px">URL</th><th></th>
+          </tr></thead>
+          <tbody id="url-tbody"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+<footer class="footer">
+  <p>
+    Apple Price Tracker &nbsp;·&nbsp; Dados recolhidos por <code>scraper.py</code><br/>
+    Para actualizar: <code>python3 scraper.py &amp;&amp; python3 build_dashboard.py</code>
+  </p>
+</footer>
+
+<script>
+// ════════════════════════════════════════════════════
+// DADOS
+// ════════════════════════════════════════════════════
+const DB        = {"AirPods": {"AirPods 4": {"Worten": [{"date": "2026-03-16 10:20", "price": 149.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 149.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 149.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 149.0, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 149.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 149.0, "url": "https://www.nos.pt"}]}, "AirPods 4 ANC": {"Worten": [{"date": "2026-03-16 10:20", "price": 199.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 199.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 199.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 199.0, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 199.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 199.0, "url": "https://www.nos.pt"}]}, "AirPods Pro 3": {"Worten": [{"date": "2026-03-16 10:20", "price": 249.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 249.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 249.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 249.0, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 249.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 249.0, "url": "https://www.nos.pt"}]}, "AirPods Max USB-C": {"Worten": [{"date": "2026-03-16 10:20", "price": 579.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 579.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 579.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 579.0, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 579.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 579.0, "url": "https://www.nos.pt"}]}}, "iPhone": {"iPhone 17 Pro Max 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1479.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1479.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1479.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1499.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1499.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1479.0, "url": "https://www.nos.pt"}]}, "iPhone 17 Pro Max 512GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1709.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1709.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1709.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1729.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1729.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1709.0, "url": "https://www.nos.pt"}]}, "iPhone 17 Pro Max 1TB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1949.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1949.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1949.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1969.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1969.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1949.0, "url": "https://www.nos.pt"}]}, "iPhone 17 Pro 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1279.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1279.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1279.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1299.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1299.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1279.0, "url": "https://www.nos.pt"}]}, "iPhone 17 Pro 512GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1509.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1509.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1509.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1529.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1529.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1509.0, "url": "https://www.nos.pt"}]}, "iPhone 17 Pro 1TB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1749.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1749.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1749.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1769.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1769.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1749.0, "url": "https://www.nos.pt"}]}, "iPhone 17 128GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 999.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 999.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.nos.pt"}]}, "iPhone 17 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1119.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1119.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.nos.pt"}]}, "iPhone 17 512GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1339.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1339.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1339.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1359.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1359.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1339.0, "url": "https://www.nos.pt"}]}, "iPhone 17 Air 128GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1119.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1119.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1099.0, "url": "https://www.nos.pt"}]}, "iPhone 17 Air 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1229.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1229.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1229.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1249.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1249.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1229.0, "url": "https://www.nos.pt"}]}, "iPhone 17e 128GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 599.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 599.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 599.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 619.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 619.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 599.0, "url": "https://www.nos.pt"}]}, "iPhone 17e 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 729.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 729.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 729.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 749.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 749.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 729.0, "url": "https://www.nos.pt"}]}, "iPhone 16 128GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 849.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 849.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 849.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 869.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 869.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 849.0, "url": "https://www.nos.pt"}]}, "iPhone 16 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 999.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 999.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 979.0, "url": "https://www.nos.pt"}]}, "iPhone 16 512GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1219.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1219.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1219.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1239.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1239.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1219.0, "url": "https://www.nos.pt"}]}, "iPhone 16e 128GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 649.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 649.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 649.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 669.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 669.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 649.0, "url": "https://www.nos.pt"}]}, "iPhone 16e 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 779.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 779.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 779.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 799.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 799.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 779.0, "url": "https://www.nos.pt"}]}, "iPhone 15 128GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 699.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 699.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 699.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 699.0, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 699.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 699.0, "url": "https://www.nos.pt"}]}, "iPhone 15 256GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 829.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 829.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 829.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 829.0, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 829.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 829.0, "url": "https://www.nos.pt"}]}, "iPhone 15 512GB": {"Worten": [{"date": "2026-03-16 10:20", "price": 1069.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 1069.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 1069.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 1069.0, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 1069.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 1069.0, "url": "https://www.nos.pt"}]}}, "Apple Watch": {"Apple Watch SE 3 40mm": {"Worten": [{"date": "2026-03-16 10:20", "price": 289.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 289.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 289.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 299.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 299.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 289.0, "url": "https://www.nos.pt"}]}, "Apple Watch SE 3 44mm": {"Worten": [{"date": "2026-03-16 10:20", "price": 319.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 319.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 319.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 329.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 329.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 319.0, "url": "https://www.nos.pt"}]}, "Apple Watch Series 11 42mm": {"Worten": [{"date": "2026-03-16 10:20", "price": 469.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 469.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 469.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 489.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 489.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 469.0, "url": "https://www.nos.pt"}]}, "Apple Watch Series 11 46mm": {"Worten": [{"date": "2026-03-16 10:20", "price": 499.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 499.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 499.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 519.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 519.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 499.0, "url": "https://www.nos.pt"}]}, "Apple Watch Ultra 3 49mm": {"Worten": [{"date": "2026-03-16 10:20", "price": 879.0, "url": "https://www.worten.pt"}], "Rádio Popular": [{"date": "2026-03-16 10:20", "price": 879.0, "url": "https://www.radiopopular.pt"}], "Darty": [{"date": "2026-03-16 10:20", "price": 879.0, "url": "https://www.darty.com"}], "MEO": [{"date": "2026-03-16 10:20", "price": 899.99, "url": "https://loja.meo.pt"}], "Vodafone": [{"date": "2026-03-16 10:20", "price": 899.0, "url": "https://www.vodafone.pt"}], "NOS": [{"date": "2026-03-16 10:20", "price": 879.0, "url": "https://www.nos.pt"}]}}, "Programas": {"iPhone 17 Pro Max 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1419.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 1199.99, "points": 5000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1249.99, "points": 4500, "url": "https://www.vodafone.pt"}]}, "iPhone 17 Pro Max 512GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1629.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 1399.99, "points": 5500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1449.99, "points": 5000, "url": "https://www.vodafone.pt"}]}, "iPhone 17 Pro Max 1TB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1859.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 1649.99, "points": 6000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1699.99, "points": 5500, "url": "https://www.vodafone.pt"}]}, "iPhone 17 Pro 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1219.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 999.99, "points": 4500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1049.99, "points": 4000, "url": "https://www.vodafone.pt"}]}, "iPhone 17 Pro 512GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1439.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 1229.99, "points": 5000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1279.99, "points": 4500, "url": "https://www.vodafone.pt"}]}, "iPhone 17 Pro 1TB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1669.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 1449.99, "points": 5500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1499.99, "points": 5000, "url": "https://www.vodafone.pt"}]}, "iPhone 17 128GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 929.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 749.99, "points": 3000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 799.99, "points": 2500, "url": "https://www.vodafone.pt"}]}, "iPhone 17 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1049.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 879.99, "points": 3500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 929.99, "points": 3000, "url": "https://www.vodafone.pt"}]}, "iPhone 17 512GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1279.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 1099.99, "points": 4000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1149.99, "points": 3500, "url": "https://www.vodafone.pt"}]}, "iPhone 17 Air 128GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1049.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 879.99, "points": 3500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 929.99, "points": 3000, "url": "https://www.vodafone.pt"}]}, "iPhone 17 Air 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1169.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 999.99, "points": 4000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1049.99, "points": 3500, "url": "https://www.vodafone.pt"}]}, "iPhone 17e 128GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 569.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 449.99, "points": 2000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 499.99, "points": 1500, "url": "https://www.vodafone.pt"}]}, "iPhone 17e 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 699.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 579.99, "points": 2500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 629.99, "points": 2000, "url": "https://www.vodafone.pt"}]}, "iPhone 16 128GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 809.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 649.99, "points": 2500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 699.99, "points": 2000, "url": "https://www.vodafone.pt"}]}, "iPhone 16 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 929.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 779.99, "points": 3000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 829.99, "points": 2500, "url": "https://www.vodafone.pt"}]}, "iPhone 16 512GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1159.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 999.99, "points": 3500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 1049.99, "points": 3000, "url": "https://www.vodafone.pt"}]}, "iPhone 16e 128GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 619.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 499.99, "points": 2000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 549.99, "points": 1500, "url": "https://www.vodafone.pt"}]}, "iPhone 16e 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 739.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 629.99, "points": 2500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 679.99, "points": 2000, "url": "https://www.vodafone.pt"}]}, "iPhone 15 128GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 659.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 549.99, "points": 2000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 599.99, "points": 1500, "url": "https://www.vodafone.pt"}]}, "iPhone 15 256GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 789.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 679.99, "points": 2500, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 729.99, "points": 2000, "url": "https://www.vodafone.pt"}]}, "iPhone 15 512GB": {"NOS DCN": [{"date": "2026-03-16 10:20", "price": 1019.99, "points": null, "url": "https://www.nos.pt"}], "MEO MEOS": [{"date": "2026-03-16 10:20", "price": 899.99, "points": 3000, "url": "https://loja.meo.pt"}], "Vodafone Viva": [{"date": "2026-03-16 10:20", "price": 949.99, "points": 2500, "url": "https://www.vodafone.pt"}]}}};
+const OVERRIDES = {}; // url_overrides.json embutido
+
+const SITE_COLORS = {
+  "Worten":"#e63946","Rádio Popular":"#f59e0b","Darty":"#3b82f6",
+  "MEO":"#22c55e","Vodafone":"#ef4444","NOS":"#8b5cf6"
+};
+
+// ════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════
+let activeCat="", activeModel="", activeVariant="";
+let activeSites=new Set(), activeDays=30, activeWeekly=false, chart=null;
+
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+function init() {
+  const cats = Object.keys(DB);
+  if (!cats.length) { showEmpty(document.getElementById("summary-cards"),"Sem dados. Corre: python3 scraper.py --demo"); return; }
+  activeCat = cats[0];
+  buildCatNav();
+  loadCategory();
+  buildUrlTable();
+}
+
+function showEmpty(el, msg) {
+  el.innerHTML = `<div class="empty"><span class="icon">📭</span><p>${msg}</p><code>python3 scraper.py --demo</code></div>`;
+}
+
+// ════════════════════════════════════════════════════
+// CATEGORY NAV
+// ════════════════════════════════════════════════════
+function buildCatNav() {
+  document.querySelectorAll(".cat-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.cat === activeCat);
+    btn.onclick = () => {
+      activeCat = btn.dataset.cat;
+      document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      loadCategory();
+    };
+  });
+}
+
+// ════════════════════════════════════════════════════
+// LOAD CATEGORY
+// ════════════════════════════════════════════════════
+const variantRe = /\s+(\d+(?:GB|TB)|(?:40|42|44|46|49)mm)$/i;
+
+function parseKey(key) {
+  const m = key.match(variantRe);
+  return m ? {model: key.slice(0, key.length-m[0].length), variant: m[1]}
+           : {model: key, variant: ""};
+}
+
+// Secções que só aparecem em certas categorias
+const mainSections  = document.getElementById("summary-cards").closest("div.cards-grid") ? null : null;
+const progSection   = document.getElementById("section-programas");
+const mainContent   = ["summary-cards","section-chart","section-table","section-heatmap"];
+
+function showMainSections(show) {
+  ["summary-cards","section-chart","section-table","section-heatmap"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.closest(".cards-grid, .chart-card, .table-card, .heatmap-card, div")?.style ?? (el.style.display = show ? "" : "none");
+  });
+  // Controls strip
+  document.querySelector(".controls-strip").style.display = show ? "" : "none";
+}
+
+function loadCategory() {
+  const isPrograms = activeCat === "Programas";
+
+  // Mostra/esconde secções
+  progSection.style.display = isPrograms ? "" : "none";
+  document.querySelector(".controls-strip").style.display = isPrograms ? "none" : "";
+  document.getElementById("summary-cards").parentElement.style.display = isPrograms ? "none" : "";
+  document.querySelector(".chart-card").style.display    = isPrograms ? "none" : "";
+  document.querySelector(".table-card").style.display    = isPrograms ? "none" : "";
+  document.querySelector(".heatmap-card").style.display  = isPrograms ? "none" : "";
+
+  if (isPrograms) {
+    renderProgramsTable();
+    return;
+  }
+
+  const catData = DB[activeCat] || {};
+  const keys    = Object.keys(catData);
+  if (!keys.length) { showEmpty(document.getElementById("summary-cards"),"Sem dados para esta categoria."); return; }
+
+  const modelVariants = {};
+  keys.forEach(k => {
+    const {model, variant} = parseKey(k);
+    if (!modelVariants[model]) modelVariants[model] = new Set();
+    modelVariants[model].add(variant);
+  });
+
+  const models  = Object.keys(modelVariants);
+  activeModel   = models[0];
+  activeVariant = [...modelVariants[activeModel]][0] ?? "";
+
+  const allSites = new Set();
+  keys.forEach(k => Object.keys(catData[k]||{}).forEach(s => allSites.add(s)));
+  activeSites = new Set(allSites);
+
+  buildModelBtns(models, modelVariants);
+  buildVariantBtns(modelVariants[activeModel]);
+  buildSiteBtns([...allSites]);
+  refreshAll();
+}
+
+// ════════════════════════════════════════════════════
+// TABELA PROGRAMAS
+// ════════════════════════════════════════════════════
+
+function renderProgramsTable() {
+  const tbody  = document.getElementById("prog-tbody");
+  const data   = DB["Programas"] || {};
+  const dbMain = DB["iPhone"]    || {};
+  tbody.innerHTML = "";
+
+  if (!Object.keys(data).length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--86)">
+      Sem dados de programas. Corre: <code style="font-family:monospace;color:var(--blue)">python3 scraper.py --demo</code>
+    </td></tr>`;
+    return;
+  }
+
+  // Ordena: Pro Max → Pro → base → Air → e → 16 → 15, depois por variante
+  const ORDER = ["iPhone 17 Pro Max","iPhone 17 Pro","iPhone 17 Air","iPhone 17","iPhone 17e",
+                 "iPhone 16","iPhone 16e","iPhone 15"];
+  const VARIANTS = ["128GB","256GB","512GB","1TB","64GB"];
+
+  const sorted = Object.keys(data).sort((a,b) => {
+    const {model:ma, variant:va} = parseKey(a);
+    const {model:mb, variant:vb} = parseKey(b);
+    const oi = ORDER.indexOf(ma), oj = ORDER.indexOf(mb);
+    if (oi !== oj) return (oi===-1?99:oi) - (oj===-1?99:oj);
+    return VARIANTS.indexOf(va) - VARIANTS.indexOf(vb);
+  });
+
+  sorted.forEach(key => {
+    const {model, variant} = parseKey(key);
+    const programs = data[key] || {};
+
+    // Preço online da secção principal (NOS)
+    const nosOnlineH = dbMain[key]?.["NOS"] || [];
+    const nosOnline  = nosOnlineH.length ? nosOnlineH[nosOnlineH.length-1].price : null;
+
+    const getLatest = prog => {
+      const h = programs[prog] || [];
+      return h.length ? h[h.length-1] : null;
+    };
+
+    const dcn  = getLatest("NOS DCN");
+    const meos = getLatest("MEO MEOS");
+    const viva = getLatest("Vodafone Viva");
+
+    const saving = (online, prog) => {
+      if (!online || !prog) return "";
+      const diff = online - prog.price;
+      if (diff <= 0) return "";
+      return `<div class="prog-saving">↓ Poupa ${diff.toFixed(2).replace(".",",")} €</div>`;
+    };
+
+    const fmtPrice = p => p != null ? p.toFixed(2).replace(".",",")+" €" : "—";
+    const fmtPts   = p => p ? `<div class="prog-pts">${p.toLocaleString("pt-PT")} pontos</div>` : "";
+
+    const tr = document.createElement("tr");
+    tr.style.cssText = "border-bottom:1px solid var(--f0)";
+    tr.innerHTML = `
+      <td style="padding:13px 16px;font-weight:600;color:var(--1d)">${model}</td>
+      <td style="padding:13px 16px">
+        <span style="background:var(--f5);border:1px solid var(--e8);border-radius:6px;padding:2px 8px;font-size:.78rem;color:var(--6e);font-weight:600">${variant||"—"}</span>
+      </td>
+      <td style="padding:13px 16px">
+        ${dcn ? `<span class="prog-badge-nos">${fmtPrice(dcn.price)}</span>${saving(nosOnline, dcn)}` : '<span style="color:var(--b0)">—</span>'}
+      </td>
+      <td style="padding:13px 16px">
+        ${meos ? `<span class="prog-badge-meo">${fmtPrice(meos.price)}</span>${fmtPts(meos.points)}${saving(nosOnline, meos)}` : '<span style="color:var(--b0)">—</span>'}
+      </td>
+      <td style="padding:13px 16px">
+        ${viva ? `<span class="prog-badge-viv">${fmtPrice(viva.price)}</span>${fmtPts(viva.points)}${saving(nosOnline, viva)}` : '<span style="color:var(--b0)">—</span>'}
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// BUTTONS
+// ════════════════════════════════════════════════════
+function buildModelBtns(models, modelVariants) {
+  const wrap = document.getElementById("model-btns");
+  wrap.innerHTML = "";
+  models.forEach(m => {
+    const b = document.createElement("button");
+    b.className = "pill" + (m===activeModel?" active":"");
+    b.textContent = m.replace(/^Apple Watch /,"").replace(/^iPhone /,"").replace(/^AirPods /,"AirPods ");
+    b.title = m;
+    b.onclick = () => {
+      activeModel   = m;
+      activeVariant = [...modelVariants[m]][0] ?? "";
+      wrap.querySelectorAll(".pill").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      buildVariantBtns(modelVariants[m]);
+      refreshAll();
+    };
+    wrap.appendChild(b);
+  });
+}
+
+function buildVariantBtns(variants) {
+  const wrap  = document.getElementById("variant-btns");
+  const label = document.getElementById("variant-label");
+  const sep   = document.getElementById("variant-sep");
+  wrap.innerHTML = "";
+  const arr = [...variants].filter(v=>v!=="");
+  if (!arr.length) { label.style.display="none"; sep.style.display="none"; return; }
+  label.style.display=""; sep.style.display="";
+  arr.forEach(v => {
+    const b = document.createElement("button");
+    b.className = "var-pill" + (v===activeVariant?" active":"");
+    b.textContent = v;
+    b.onclick = () => {
+      activeVariant = v;
+      wrap.querySelectorAll(".var-pill").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      refreshAll();
+    };
+    wrap.appendChild(b);
+  });
+}
+
+function buildSiteBtns(sites) {
+  const wrap = document.getElementById("site-btns");
+  wrap.innerHTML = "";
+  sites.forEach(s => {
+    const c = SITE_COLORS[s]||"#86868b";
+    const b = document.createElement("button");
+    b.className = "site-pill on";
+    b.textContent = s;
+    b.style.cssText = `border-color:${c};color:${c};background:${c}14`;
+    b.onclick = () => {
+      if (activeSites.has(s)) {
+        activeSites.delete(s); b.classList.remove("on");
+        b.style.cssText = "border-color:var(--d2);color:var(--86);background:var(--white)";
+      } else {
+        activeSites.add(s); b.classList.add("on");
+        b.style.cssText = `border-color:${c};color:${c};background:${c}14`;
+      }
+      refreshAll();
+    };
+    wrap.appendChild(b);
+  });
+
+  document.querySelectorAll("[data-days], [data-week]").forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll("[data-days],[data-week]").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active");
+      if (b.dataset.week) {
+        activeWeekly = true;
+        activeDays   = 0;   // fetch all, grouping handles the window
+      } else {
+        activeWeekly = false;
+        activeDays   = +b.dataset.days;
+      }
+      refreshAll();
+    };
+  });
+}
+
+// ════════════════════════════════════════════════════
+// DATA HELPERS
+// ════════════════════════════════════════════════════
+function dbKey(model, variant) { return variant ? `${model} ${variant}` : model; }
+
+function getHistory(model, variant, site) {
+  const all = DB[activeCat]?.[dbKey(model,variant)]?.[site]||[];
+  if (!activeDays) return all;
+  const cut = new Date(); cut.setDate(cut.getDate()-activeDays);
+  return all.filter(e => new Date(e.date)>=cut);
+}
+
+/* Returns array of {week, avg, url} — one entry per Sun-Sat week */
+function getWeeklyData(model, variant, site) {
+  const all = DB[activeCat]?.[dbKey(model,variant)]?.[site]||[];
+  if (!all.length) return [];
+  const buckets = {};
+  all.forEach(e => {
+    const d = new Date(e.date);
+    // Sunday of the week containing d
+    const sun = new Date(d);
+    sun.setDate(d.getDate() - d.getDay());
+    const key = sun.toISOString().slice(0,10);
+    if (!buckets[key]) buckets[key] = {prices:[], url: e.url};
+    buckets[key].prices.push(e.price);
+  });
+  return Object.entries(buckets)
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([week, v]) => {
+      const avg = v.prices.reduce((s,p)=>s+p,0) / v.prices.length;
+      return {week, avg: Math.round(avg*100)/100, url: v.url};
+    });
+}
+
+function allH(model, variant, site) {
+  return DB[activeCat]?.[dbKey(model,variant)]?.[site]||[];
+}
+function latest(model,variant,site) {
+  const h=allH(model,variant,site); return h.length?h[h.length-1]:null;
+}
+function minMax(model,variant,site) {
+  const pp=allH(model,variant,site).map(x=>x.price).filter(Boolean);
+  return pp.length?{min:Math.min(...pp),max:Math.max(...pp)}:null;
+}
+function change7d(model,variant,site) {
+  const h=allH(model,variant,site); if(h.length<2) return null;
+  const now=h[h.length-1].price, then=h[Math.max(0,h.length-7)].price;
+  return ((now-then)/then)*100;
+}
+function fmt(p) { return p!=null ? p.toFixed(2).replace(".",",")+" €" : "—"; }
+
+// ════════════════════════════════════════════════════
+// CARDS
+// ════════════════════════════════════════════════════
+function renderCards() {
+  const grid    = document.getElementById("summary-cards");
+  const catData = DB[activeCat]||{};
+  grid.innerHTML = "";
+
+  const keys = Object.keys(catData).filter(k => k===activeModel||k.startsWith(activeModel+" "));
+  if (!keys.length) { showEmpty(grid,"Sem dados para este modelo."); return; }
+
+  document.getElementById("cards-title").textContent = activeModel;
+  document.getElementById("cards-sub").textContent = `${keys.length} variante(s) · ${activeSites.size} loja(s)`;
+
+  keys.forEach((key, idx) => {
+    const {variant} = parseKey(key);
+    let bestPrice=Infinity, bestSite="", bestUrl="#";
+    for (const [site,h] of Object.entries(catData[key]||{})) {
+      if(h.length && h[h.length-1].price<bestPrice) {
+        bestPrice=h[h.length-1].price; bestSite=site; bestUrl=h[h.length-1].url||"#";
+      }
+    }
+    const ch=change7d(activeModel,variant,bestSite);
+    const badgeClass = ch==null?"badge-new":ch<-.5?"badge-down":ch>.5?"badge-up":"badge-same";
+    const badgeText  = ch==null?"Novo":(ch>0?"↑ ":"↓ ")+Math.abs(ch).toFixed(1)+"%";
+    const total=Object.values(catData[key]||{}).reduce((s,h)=>s+h.length,0);
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      <div class="card-cat">${activeCat}</div>
+      ${variant?`<span class="card-variant">${variant}</span>`:"<div style='height:4px'></div>"}
+      <div class="card-price">${fmt(bestPrice!==Infinity?bestPrice:null)}</div>
+      <div class="card-store">Melhor em <strong>${bestSite||"—"}</strong></div>
+      <div class="card-store" style="margin-top:2px;font-size:.74rem">${total} registo(s)</div>
+      <span class="card-badge ${badgeClass}">${badgeText}</span>`;
+    if (bestUrl!=="#") card.onclick=()=>window.open(bestUrl,"_blank");
+    grid.appendChild(card);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// CHART
+// ════════════════════════════════════════════════════
+function weekLabel(isoSun) {
+  /* "Dom 1 Jun" */
+  const d = new Date(isoSun + "T12:00:00");
+  const sat = new Date(d); sat.setDate(d.getDate()+6);
+  const opts = {day:"numeric",month:"short"};
+  return d.toLocaleDateString("pt-PT",opts) + " – " + sat.toLocaleDateString("pt-PT",opts);
+}
+
+function renderChart() {
+  const wrap = document.querySelector(".chart-container");
+  const modelLabel = `${activeModel}${activeVariant?" · "+activeVariant:""}`;
+  const modeLabel  = activeWeekly ? "Preço médio semanal (Dom→Sáb)" : "Histórico diário";
+
+  document.getElementById("chart-subtitle").textContent =
+    `${modelLabel} · ${activeSites.size} loja(s) · ${modeLabel}`;
+
+  let labels, datasets;
+
+  if (activeWeekly) {
+    /* ── WEEKLY MODE: one point per Sun-Sat week, value = average ── */
+    const weekSet = new Set();
+    for (const s of activeSites) getWeeklyData(activeModel,activeVariant,s).forEach(w=>weekSet.add(w.week));
+    const weeks = [...weekSet].sort();
+
+    if (!weeks.length) {
+      wrap.innerHTML=`<div class="empty"><span class="icon">📈</span><p>Sem dados suficientes para agrupamento semanal.</p></div>`;
+      if(chart){chart.destroy();chart=null;} buildLegend([]); return;
+    }
+
+    labels = weeks.map(weekLabel);
+    datasets = [...activeSites].map(site => {
+      const wd = getWeeklyData(activeModel,activeVariant,site);
+      const byWeek = Object.fromEntries(wd.map(w=>[w.week, w.avg]));
+      return {
+        label: site,
+        data: weeks.map(w=>byWeek[w]??null),
+        borderColor: SITE_COLORS[site]||"#86868b",
+        backgroundColor: (SITE_COLORS[site]||"#86868b")+"18",
+        borderWidth: 2.5,
+        pointRadius: 5, pointHoverRadius: 8,
+        pointBackgroundColor: SITE_COLORS[site]||"#86868b",
+        fill: false, tension: .3, spanGaps: true,
+      };
+    });
+  } else {
+    /* ── DAILY MODE ── */
+    const dateSet = new Set();
+    for(const s of activeSites) getHistory(activeModel,activeVariant,s).forEach(e=>dateSet.add(e.date.slice(0,10)));
+    const dates = [...dateSet].sort();
+
+    if(!dates.length) {
+      wrap.innerHTML=`<div class="empty"><span class="icon">📈</span><p>Sem dados no período seleccionado.<br>Selecciona "Tudo" ou corre o scraper mais vezes.</p></div>`;
+      if(chart){chart.destroy();chart=null;} buildLegend([]); return;
+    }
+
+    labels = dates;
+    datasets = [...activeSites].map(site=>{
+      const h = getHistory(activeModel,activeVariant,site);
+      const byDay = Object.fromEntries(h.map(e=>[e.date.slice(0,10),e.price]));
+      return {
+        label: site,
+        data: dates.map(d=>byDay[d]??null),
+        borderColor: SITE_COLORS[site]||"#86868b",
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        pointRadius: dates.length<10?5:2, pointHoverRadius:7,
+        pointBackgroundColor: SITE_COLORS[site]||"#86868b",
+        tension:.35, spanGaps:true,
+      };
+    });
+  }
+
+  buildLegend([...activeSites]);
+  wrap.innerHTML=`<canvas id="priceChart"></canvas>`;
+
+  if(chart) chart.destroy();
+  chart = new Chart(document.getElementById("priceChart").getContext("2d"),{
+    type:"line",
+    data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"index",intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:"#ffffff", borderColor:"#e8e8ed", borderWidth:1,
+          titleColor:"#1d1d1f", bodyColor:"#6e6e73",
+          padding:14, cornerRadius:12, boxPadding:5,
+          titleFont:{size:12,weight:"600"}, bodyFont:{size:12},
+          callbacks:{
+            title: items => items[0].label,
+            label: c => ` ${c.dataset.label}: ${c.parsed.y!=null?c.parsed.y.toFixed(2).replace(".",",")+" €":"—"}`,
+            footer: activeWeekly ? items => `Preço médio da semana` : undefined,
+          }
+        },
+      },
+      scales:{
+        x:{
+          ticks:{color:"#86868b",maxTicksLimit:activeWeekly?12:8,font:{size:11},maxRotation:activeWeekly?35:0},
+          grid:{color:"#f0f0f2",drawBorder:false}, border:{display:false},
+        },
+        y:{
+          ticks:{color:"#86868b",callback:v=>v+" €",font:{size:11}},
+          grid:{color:"#f0f0f2",drawBorder:false}, border:{display:false},
+        }
+      }
+    }
+  });
+}
+
+function buildLegend(sites) {
+  const leg=document.getElementById("chart-legend");
+  leg.innerHTML="";
+  sites.forEach(s=>{
+    const item=document.createElement("div"); item.className="legend-item";
+    item.innerHTML=`<span class="legend-dot" style="background:${SITE_COLORS[s]||"#86868b"}"></span>${s}`;
+    leg.appendChild(item);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// TABLE
+// ════════════════════════════════════════════════════
+function renderTable() {
+  const tbody=document.getElementById("table-body");
+  tbody.innerHTML="";
+  document.getElementById("table-subtitle").textContent =
+    `${activeModel}${activeVariant?" · "+activeVariant:""}`;
+
+  const rows=[...activeSites].map(site=>{
+    const e=latest(activeModel,activeVariant,site);
+    return {site,e,mm:minMax(activeModel,activeVariant,site),
+             ch:change7d(activeModel,activeVariant,site),
+             count:allH(activeModel,activeVariant,site).length};
+  }).filter(r=>r.e);
+
+  if(!rows.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--86)">Sem dados para esta seleção.</td></tr>`;
+    return;
+  }
+
+  rows.sort((a,b)=>(a.e?.price||99999)-(b.e?.price||99999));
+  const bestP=rows[0]?.e?.price;
+
+  rows.forEach(row=>{
+    const {site,e,mm,ch,count}=row;
+    const isBest=e.price===bestP;
+    const chClass=ch==null?"td-na":ch<-.5?"td-down":ch>.5?"td-up":"td-na";
+    const chText =ch==null?"—":(ch>0?"↑ ":"↓ ")+Math.abs(ch).toFixed(2)+"%";
+    const col=SITE_COLORS[site]||"#86868b";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><div class="td-site">
+        <span style="width:9px;height:9px;border-radius:50%;background:${col};flex-shrink:0;display:inline-block"></span>
+        ${site}
+      </div></td>
+      <td class="${isBest?"td-best":""}" style="font-weight:600">${isBest?"★ ":""}${fmt(e.price)}</td>
+      <td class="${chClass}">${chText}</td>
+      <td style="color:var(--6e)">${mm?fmt(mm.min):"—"}</td>
+      <td style="color:var(--6e)">${mm?fmt(mm.max):"—"}</td>
+      <td style="color:var(--b0)">${count}</td>
+      <td class="td-link"><a href="${e.url||"#"}" target="_blank" rel="noopener">Ver →</a></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// HEATMAP
+// ════════════════════════════════════════════════════
+function renderHeatmap() {
+  const grid=document.getElementById("heatmap");
+  const catData=DB[activeCat]||{};
+  const keys=Object.keys(catData);
+  const sites=[...activeSites];
+  grid.style.gridTemplateColumns=`180px repeat(${sites.length},1fr)`;
+  grid.innerHTML="";
+
+  // header row
+  const corner=document.createElement("div"); corner.className="hm-head"; corner.textContent="Modelo"; grid.appendChild(corner);
+  sites.forEach(s=>{
+    const h=document.createElement("div"); h.className="hm-head";
+    h.style.color=SITE_COLORS[s]||"#86868b"; h.textContent=s;
+    grid.appendChild(h);
+  });
+
+  // gather all prices for scale
+  const allP=[];
+  keys.forEach(k=>sites.forEach(s=>{ const h=catData[k]?.[s]||[]; if(h.length) allP.push(h[h.length-1].price); }));
+  const gMin=Math.min(...allP), gMax=Math.max(...allP);
+
+  keys.forEach(key=>{
+    let rowMin=Infinity;
+    sites.forEach(s=>{ const h=catData[key]?.[s]||[]; if(h.length&&h[h.length-1].price<rowMin) rowMin=h[h.length-1].price; });
+
+    const lbl=document.createElement("div"); lbl.className="hm-label"; lbl.textContent=key; grid.appendChild(lbl);
+    sites.forEach(s=>{
+      const cell=document.createElement("div"); cell.className="hm-cell";
+      const h=catData[key]?.[s]||[];
+      if(!h.length){ cell.innerHTML=`<span style="color:var(--d2)">—</span>`; cell.style.background="var(--f5)"; cell.style.cursor="default"; }
+      else{
+        const price=h[h.length-1].price;
+        const ratio=(price-gMin)/((gMax-gMin)||1);
+        // Apple-style: green (best) through yellow to red (expensive)
+        // Using subtle tints — not garish
+        const hue = Math.round(120 - ratio*120); // 120=green, 0=red
+        const isBest=price===rowMin;
+        cell.style.background=`hsla(${hue},70%,94%,1)`;
+        cell.style.borderColor=`hsla(${hue},60%,75%,1)`;
+        cell.style.color=`hsla(${hue},50%,28%,1)`;
+        cell.innerHTML=`${isBest?`<span style="font-size:.65rem;margin-right:2px">★</span>`:""}<span>${fmt(price)}</span>`;
+        cell.title=`${key} · ${s}: ${fmt(price)}`;
+        const url=h[h.length-1].url; if(url) cell.onclick=()=>window.open(url,"_blank");
+      }
+      grid.appendChild(cell);
+    });
+  });
+}
+
+// ════════════════════════════════════════════════════
+// REFRESH
+// ════════════════════════════════════════════════════
+function refreshAll(){ renderCards(); renderChart(); renderTable(); renderHeatmap(); }
+
+// ════════════════════════════════════════════════════
+// EXPORT EXCEL
+// ════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════
+// URL MANAGER
+// ════════════════════════════════════════════════════
+
+// Estado local dos overrides (editável pelo utilizador)
+const localOverrides = JSON.parse(JSON.stringify(OVERRIDES));
+
+// URLs automáticos gerados pela mesma lógica do scraper
+function autoUrl(site, query) {
+  const q = encodeURIComponent(query);
+  const map = {
+    "Worten":        `https://www.worten.pt/search?query=${q}`,
+    "Rádio Popular": `https://www.radiopopular.pt/pesquisa/?q=${q}`,
+    "Darty":         `https://www.darty.com/nav/recherche?text=${q}`,
+    "MEO":           `https://loja.meo.pt/pesquisa?q=${q}`,
+    "Vodafone":      `https://www.vodafone.pt/loja/pesquisa.html?q=${q}`,
+    "NOS":           `https://www.nos.pt/particulares/equipamentos/pesquisa?q=${q}`,
+  };
+  return map[site] || "#";
+}
+
+// Constrói o catálogo de queries (espelha o CATALOGUE do scraper.py)
+const QUERIES = {};
+for (const [cat, models] of Object.entries(DB)) {
+  for (const key of Object.keys(models)) {
+    // heurística simples: query = key
+    QUERIES[key] = key;
+  }
+}
+
+function openUrlManager() {
+  document.getElementById("url-modal").style.display = "block";
+  document.body.style.overflow = "hidden";
+}
+
+function closeUrlManager() {
+  document.getElementById("url-modal").style.display = "none";
+  document.body.style.overflow = "";
+}
+
+// Fechar ao clicar fora do painel
+document.getElementById("url-modal").addEventListener("click", function(e) {
+  if (e.target === this) closeUrlManager();
+});
+
+function buildUrlTable() {
+  const tbody = document.getElementById("url-tbody");
+  tbody.innerHTML = "";
+  const variantRe = /\s+(\d+(?:GB|TB)|(?:40|42|44|46|49)mm)$/i;
+  const SITES = ["Worten","Rádio Popular","Darty","MEO","Vodafone","NOS"];
+
+  for (const [cat, models] of Object.entries(DB)) {
+    for (const [key, sites] of Object.entries(models)) {
+      const mv      = key.match(variantRe);
+      const model   = mv ? key.slice(0, key.length - mv[0].length) : key;
+      const variant = mv ? mv[1] : "—";
+
+      for (const site of SITES) {
+        const override = localOverrides[key]?.[site];
+        const auto     = autoUrl(site, key);
+        const current  = override || auto;
+        const isOvr    = !!override;
+        const entries  = sites[site] || [];
+        const last     = entries.length ? entries[entries.length-1] : null;
+        const hasData  = !!last;
+
+        const tr = document.createElement("tr");
+        tr.dataset.key  = key;
+        tr.dataset.site = site;
+        tr.innerHTML = `
+          <td style="font-weight:600;white-space:nowrap">${model}</td>
+          <td style="color:var(--86)">${variant}</td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:5px">
+              <span style="width:8px;height:8px;border-radius:50%;background:${getSiteColor(site)};display:inline-block;flex-shrink:0"></span>
+              ${site}
+            </span>
+          </td>
+          <td><span class="${isOvr?"badge-override":"badge-auto"}">${isOvr?"Manual":"Auto"}</span></td>
+          <td><span class="${hasData?"badge-ok":"badge-nodata"}">${hasData ? last.price.toFixed(2).replace(".",",")+" €" : "sem dados"}</span></td>
+          <td>
+            <input
+              class="url-input${isOvr?" is-override":""}"
+              type="text"
+              value="${current}"
+              data-key="${key}"
+              data-site="${site}"
+              data-auto="${auto}"
+              oninput="onUrlChange(this)"
+              title="${current}"
+            />
+          </td>
+          <td>
+            ${isOvr ? `<button class="btn-reset-url" onclick="resetUrl('${key}','${site}',this)" title="Repor URL automático">↩ Repor</button>` : ""}
+          </td>`;
+        tbody.appendChild(tr);
+      }
+    }
+  }
+}
+
+function getSiteColor(site) {
+  return {
+    "Worten":"#e63946","Rádio Popular":"#f59e0b","Darty":"#3b82f6",
+    "MEO":"#22c55e","Vodafone":"#ef4444","NOS":"#8b5cf6"
+  }[site] || "#86868b";
+}
+
+function onUrlChange(input) {
+  const key  = input.dataset.key;
+  const site = input.dataset.site;
+  const auto = input.dataset.auto;
+  const val  = input.value.trim();
+
+  if (!localOverrides[key]) localOverrides[key] = {};
+
+  if (!val || val === auto) {
+    // igual ao automático → remove override
+    delete localOverrides[key][site];
+    if (!Object.keys(localOverrides[key]).length) delete localOverrides[key];
+    input.classList.remove("is-override");
+    const tr = input.closest("tr");
+    tr.querySelector("td:nth-child(4)").innerHTML = `<span class="badge-auto">Auto</span>`;
+    const resetBtn = tr.querySelector(".btn-reset-url");
+    if (resetBtn) resetBtn.remove();
+  } else {
+    // novo override
+    localOverrides[key][site] = val;
+    input.classList.add("is-override");
+    const tr = input.closest("tr");
+    tr.querySelector("td:nth-child(4)").innerHTML = `<span class="badge-override">Manual</span>`;
+    if (!tr.querySelector(".btn-reset-url")) {
+      const td = tr.querySelector("td:last-child");
+      td.innerHTML = `<button class="btn-reset-url" onclick="resetUrl('${key}','${site}',this)" title="Repor URL automático">↩ Repor</button>`;
+    }
+  }
+}
+
+function resetUrl(key, site, btn) {
+  const tr    = btn.closest("tr");
+  const input = tr.querySelector(".url-input");
+  input.value = input.dataset.auto;
+  onUrlChange(input);
+}
+
+function filterUrlTable() {
+  const q = document.getElementById("url-search").value.toLowerCase();
+  document.querySelectorAll("#url-tbody tr").forEach(tr => {
+    const text = (tr.dataset.key + " " + tr.dataset.site).toLowerCase();
+    tr.style.display = text.includes(q) ? "" : "none";
+  });
+}
+
+function downloadOverrides() {
+  // Filtra apenas as entradas com overrides reais
+  const clean = {};
+  for (const [k, v] of Object.entries(localOverrides)) {
+    if (!k.startsWith("_") && Object.keys(v).length) clean[k] = v;
+  }
+  const blob = new Blob(
+    [JSON.stringify(clean, null, 2)],
+    {type: "application/json"}
+  );
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "url_overrides.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportExcel() {
+  const wb = XLSX.utils.book_new();
+  const dateStr = new Date().toLocaleDateString("pt-PT").replace(/\//g,"-");
+
+  for (const [cat, models] of Object.entries(DB)) {
+    // Uma folha por categoria
+    const rows = [["Modelo", "Variante", "Loja", "Data", "Preço (€)", "URL"]];
+
+    for (const [key, sites] of Object.entries(models)) {
+      // Separar modelo e variante
+      const variantRe = /\s+(\d+(?:GB|TB)|(?:40|42|44|46|49)mm)$/i;
+      const m = key.match(variantRe);
+      const model   = m ? key.slice(0, key.length - m[0].length) : key;
+      const variant = m ? m[1] : "";
+
+      for (const [site, entries] of Object.entries(sites)) {
+        for (const e of entries) {
+          rows.push([model, variant, site, e.date, e.price, e.url || ""]);
+        }
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Largura das colunas
+    ws["!cols"] = [
+      {wch:28}, {wch:8}, {wch:16}, {wch:18},
+      {wch:12}, {wch:50}
+    ];
+
+    // Header a bold (linha 1)
+    const range = XLSX.utils.decode_range(ws["!ref"]);
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({r:0, c})];
+      if (cell) {
+        cell.s = {font: {bold: true}, fill: {fgColor: {rgb: "1D1D1F"}}};
+      }
+    }
+
+    // Nome da folha (máx 31 caracteres, sem caracteres especiais)
+    const sheetName = cat.replace(/[^a-zA-Z0-9 ]/g,"").slice(0,31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  }
+
+  // Folha resumo — último preço de cada modelo × loja
+  const summary = [["Categoria", "Modelo", "Variante", "Loja", "Último preço (€)", "Data", "URL"]];
+  for (const [cat, models] of Object.entries(DB)) {
+    for (const [key, sites] of Object.entries(models)) {
+      const variantRe = /\s+(\d+(?:GB|TB)|(?:40|42|44|46|49)mm)$/i;
+      const mv = key.match(variantRe);
+      const model   = mv ? key.slice(0, key.length - mv[0].length) : key;
+      const variant = mv ? mv[1] : "";
+      for (const [site, entries] of Object.entries(sites)) {
+        if (!entries.length) continue;
+        const last = entries[entries.length - 1];
+        summary.push([cat, model, variant, site, last.price, last.date, last.url||""]);
+      }
+    }
+  }
+  const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+  wsSummary["!cols"] = [
+    {wch:14},{wch:28},{wch:8},{wch:16},{wch:16},{wch:18},{wch:50}
+  ];
+  XLSX.utils.book_append_sheet(wb, wsSummary, "Resumo");
+
+  XLSX.writeFile(wb, `apple-prices-${dateStr}.xlsx`);
+}
+
+init();
+</script>
+</body>
+</html>

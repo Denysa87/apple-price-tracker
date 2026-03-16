@@ -1,0 +1,79 @@
+name: 🍎 Apple Price Tracker
+
+on:
+  # Corre automaticamente uma vez por dia às 10:00 UTC (11:00 Lisboa Inverno / 12:00 Verão)
+  schedule:
+    - cron: "0 10 * * *"
+
+  # Permite correr manualmente no GitHub
+  workflow_dispatch:
+
+permissions:
+  contents: write   # para fazer git commit + push
+  pages: write      # para publicar no GitHub Pages
+  id-token: write
+
+jobs:
+  scrape:
+    name: Scrape & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # histórico completo para não perder prices.json
+
+      # ── 2. Python ──────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # ── 3. Dependências ────────────────────────────────────────
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      # ── 4. Playwright + Chromium ───────────────────────────────
+      - name: Install Playwright browsers
+        run: python -m playwright install chromium --with-deps
+
+      # ── 5. Scraper ─────────────────────────────────────────────
+      - name: Run price scraper
+        run: python scraper.py
+        env:
+          PYTHONUNBUFFERED: "1"
+
+      # ── 6. Build dashboard ────────────────────────────────────
+      - name: Build dashboard HTML
+        run: python build_dashboard.py
+
+      # ── 7. Commit prices.json + dashboard.html ────────────────
+      - name: Commit updated data
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add prices.json dashboard.html
+          # só faz commit se houver alterações
+          git diff --cached --quiet || git commit -m "chore: update prices $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
+
+      # ── 8. Publicar no GitHub Pages ───────────────────────────
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .   # publica toda a pasta (inclui dashboard.html)
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: scrape
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

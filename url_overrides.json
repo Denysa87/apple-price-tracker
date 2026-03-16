@@ -1,0 +1,9 @@
+{
+  "_comment": "Override de URLs para o scraper. Formato: { \"Produto Variante\": { \"Loja\": \"https://...\" } }",
+  "_exemplo": {
+    "iPhone 17 Pro Max 256GB": {
+      "MEO": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-256gb",
+      "Vodafone": "https://www.vodafone.pt/loja/telemoveis/apple/iphone-17-pro-max-5g.html?color=prateado&storage=256&segment=consumer&paymentType=pvp"
+    }
+  }
+}

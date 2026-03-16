@@ -1,0 +1,662 @@
+#!/usr/bin/env python3
+"""
+🍎 Apple Price Tracker — scraper.py
+Monitoriza AirPods, iPhones e Apple Watch em 6 retalhistas PT.
+Usa Playwright (Chromium headless) para scraping de sites JavaScript.
+
+Uso local (demo):     python3 scraper.py --demo
+Uso local (real):     python3 scraper.py
+GitHub Actions:       python3 scraper.py  (automático via workflow)
+"""
+
+import argparse
+import asyncio
+import json
+import re
+import random
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+DATA_FILE      = Path(__file__).parent / "prices.json"
+OVERRIDES_FILE = Path(__file__).parent / "url_overrides.json"
+
+# ─────────────────────────────────────────────────────────────
+# Catálogo de produtos
+# ─────────────────────────────────────────────────────────────
+
+CATALOGUE = {
+    "AirPods": {
+        "AirPods 4":         {"variants": {"": "Apple AirPods 4"}},
+        "AirPods 4 ANC":     {"variants": {"": "Apple AirPods 4 ANC"}},
+        "AirPods Pro 3":     {"variants": {"": "Apple AirPods Pro 3"}},
+        "AirPods Max USB-C": {"variants": {"": "Apple AirPods Max"}},
+    },
+    "iPhone": {
+        "iPhone 17 Pro Max": {"variants": {
+            "256GB": "Apple iPhone 17 Pro Max 256GB",
+            "512GB": "Apple iPhone 17 Pro Max 512GB",
+            "1TB":   "Apple iPhone 17 Pro Max 1TB",
+        }},
+        "iPhone 17 Pro": {"variants": {
+            "256GB": "Apple iPhone 17 Pro 256GB",
+            "512GB": "Apple iPhone 17 Pro 512GB",
+            "1TB":   "Apple iPhone 17 Pro 1TB",
+        }},
+        "iPhone 17": {"variants": {
+            "128GB": "Apple iPhone 17 128GB",
+            "256GB": "Apple iPhone 17 256GB",
+            "512GB": "Apple iPhone 17 512GB",
+        }},
+        "iPhone 17 Air": {"variants": {
+            "128GB": "Apple iPhone 17 Air 128GB",
+            "256GB": "Apple iPhone 17 Air 256GB",
+        }},
+        "iPhone 17e": {"variants": {
+            "128GB": "Apple iPhone 17e 128GB",
+            "256GB": "Apple iPhone 17e 256GB",
+        }},
+        "iPhone 16": {"variants": {
+            "128GB": "Apple iPhone 16 128GB",
+            "256GB": "Apple iPhone 16 256GB",
+            "512GB": "Apple iPhone 16 512GB",
+        }},
+        "iPhone 16e": {"variants": {
+            "128GB": "Apple iPhone 16e 128GB",
+            "256GB": "Apple iPhone 16e 256GB",
+        }},
+        "iPhone 15": {"variants": {
+            "128GB": "Apple iPhone 15 128GB",
+            "256GB": "Apple iPhone 15 256GB",
+            "512GB": "Apple iPhone 15 512GB",
+        }},
+    },
+    "Apple Watch": {
+        "Apple Watch SE 3": {"variants": {
+            "40mm": "Apple Watch SE 3 40mm",
+            "44mm": "Apple Watch SE 3 44mm",
+        }},
+        "Apple Watch Series 11": {"variants": {
+            "42mm": "Apple Watch Series 11 42mm",
+            "46mm": "Apple Watch Series 11 46mm",
+        }},
+        "Apple Watch Ultra 3": {"variants": {
+            "49mm": "Apple Watch Ultra 3 49mm",
+        }},
+    },
+}
+
+# ─────────────────────────────────────────────────────────────
+# URLs de pesquisa por site
+# ─────────────────────────────────────────────────────────────
+
+from urllib.parse import quote_plus
+
+def search_url(site: str, query: str) -> str:
+    q = quote_plus(query)
+    return {
+        "Worten":        f"https://www.worten.pt/search?query={q}",
+        "Rádio Popular": f"https://www.radiopopular.pt/pesquisa/?q={q}",
+        "Darty":         f"https://www.darty.com/nav/recherche?text={q}",
+        "MEO":           f"https://loja.meo.pt/pesquisa?q={q}",
+        "Vodafone":      f"https://www.vodafone.pt/loja/pesquisa.html?q={q}",
+        "NOS":           f"https://www.nos.pt/particulares/equipamentos/pesquisa?q={q}",
+    }[site]
+
+SITES = ["Worten", "Rádio Popular", "Darty", "MEO", "Vodafone", "NOS"]
+
+# ─────────────────────────────────────────────────────────────
+# Extracção de preços — estratégia unificada para todos os sites
+# ─────────────────────────────────────────────────────────────
+
+def extract_prices_from_html(html: str) -> list[float]:
+    """
+    Extrai preços do HTML renderizado usando múltiplas estratégias:
+    1. JSON-LD schema.org (MEO, Rádio Popular, etc.)
+    2. itemprop="price" (Rádio Popular, Worten)
+    3. Padrões em JSON embebido no JS (Vodafone, Worten, NOS)
+    4. Padrões inline no HTML (qualquer site)
+    """
+    found = set()
+
+    # 1. JSON-LD schema.org
+    for jld in re.findall(
+        r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html, re.DOTALL
+    ):
+        try:
+            d = json.loads(jld)
+            # pode ser um objecto ou lista
+            items = d if isinstance(d, list) else [d]
+            for item in items:
+                raw = json.dumps(item)
+                # preço directo em offers
+                for m in re.findall(r'"price"\s*:\s*(\d{3,5}\.?\d{0,2})', raw):
+                    v = float(m)
+                    if 50 < v < 10000:
+                        found.add(round(v, 2))
+        except Exception:
+            pass
+
+    # 2. itemprop="price" content="..."
+    for m in re.findall(
+        r'itemprop=["\']price["\'][^>]*content=["\']([0-9.,]+)["\']', html
+    ):
+        try:
+            v = float(m.replace('.', '').replace(',', '.'))
+            if 50 < v < 10000:
+                found.add(round(v, 2))
+        except Exception:
+            pass
+    # variante: content="..." itemprop="price"
+    for m in re.findall(
+        r'content=["\']([0-9.,]+)["\'][^>]*itemprop=["\']price["\']', html
+    ):
+        try:
+            v = float(m.replace('.', '').replace(',', '.'))
+            if 50 < v < 10000:
+                found.add(round(v, 2))
+        except Exception:
+            pass
+
+    # 3. JSON embebido — padrões comuns em SPAs
+    for pat in [
+        r'"price"\s*:\s*(\d{3,5}\.\d{2})',          # "price": 1499.99
+        r'"salePrice"\s*:\s*(\d{3,5}\.\d{2})',
+        r'"finalPrice"\s*:\s*(\d{3,5}\.\d{2})',
+        r'"pvp"\s*:\s*(\d{3,5}\.\d{2})',
+        r'"regularPrice"\s*:\s*(\d{3,5}\.\d{2})',
+        r'"amount"\s*:\s*(\d{3,5}\.\d{2})',
+        r'"displayPrice"\s*:\s*"(\d{3,5}[.,]\d{2})"',
+    ]:
+        for m in re.findall(pat, html, re.IGNORECASE):
+            try:
+                v = float(str(m).replace(',', '.'))
+                if 50 < v < 10000:
+                    found.add(round(v, 2))
+            except Exception:
+                pass
+
+    # 4. Preços inline visíveis no HTML (formato PT e FR)
+    for pat in [
+        r'>(\d{1}\.\d{3},\d{2})\s*€',   # >1.499,99 €
+        r'>(\d{3,4},\d{2})\s*€',          # >1499,99 €
+        r'€\s*(\d{3,4},\d{2})<',          # € 1499,99<
+        r'>(\d{3,4}\.\d{2})\s*€',          # >1499.99 € (formato FR)
+    ]:
+        for m in re.findall(pat, html):
+            try:
+                v = float(m.replace('.', '').replace(',', '.'))
+                if 50 < v < 10000:
+                    found.add(round(v, 2))
+            except Exception:
+                pass
+
+    return sorted(found)
+
+
+def best_match(prices: list[float], query: str) -> Optional[float]:
+    """
+    De uma lista de preços extraídos de uma página de pesquisa,
+    devolve o mais provável para o produto pesquisado.
+    Heurística: valor mais baixo plausível (evita preços de acessórios muito baratos).
+    """
+    if not prices:
+        return None
+    # filtra ruído — preços demasiado baixos para o produto
+    query_lower = query.lower()
+    min_price = 40
+    if "pro max" in query_lower or "ultra" in query_lower:
+        min_price = 800
+    elif "pro" in query_lower and "iphone" in query_lower:
+        min_price = 600
+    elif "iphone" in query_lower:
+        min_price = 400
+    elif "watch" in query_lower:
+        min_price = 150
+    elif "airpods max" in query_lower:
+        min_price = 400
+    elif "airpods" in query_lower:
+        min_price = 100
+    candidates = [p for p in prices if p >= min_price]
+    return min(candidates) if candidates else None
+
+
+# ─────────────────────────────────────────────────────────────
+# Playwright scraper (async)
+# ─────────────────────────────────────────────────────────────
+
+async def scrape_all_async() -> dict:
+    from playwright.async_api import async_playwright
+
+    results = {}  # { category: { "Model Variant": { site: [{date,price,url}] } } }
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+            ],
+        )
+        context = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (X11; Linux x86_64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            locale="pt-PT",
+            viewport={"width": 1280, "height": 800},
+        )
+        page = await context.new_page()
+
+        for category, models in CATALOGUE.items():
+            results.setdefault(category, {})
+            print(f"\n📦  {category}")
+
+            for model_name, model_info in models.items():
+                for variant, query in model_info["variants"].items():
+                    key = f"{model_name} {variant}".strip()
+                    results[category].setdefault(key, {})
+                    print(f"  🔍  {key}")
+
+                    for site in SITES:
+                        # Usa override se existir, senão URL de pesquisa automático
+                        overrides = {}
+                        if OVERRIDES_FILE.exists():
+                            with open(OVERRIDES_FILE, encoding="utf-8") as f:
+                                raw = json.load(f)
+                                overrides = {k: v for k, v in raw.items() if not k.startswith("_")}
+                        override_url = overrides.get(key, {}).get(site)
+                        url = override_url if override_url else search_url(site, query)
+                        is_override = bool(override_url)
+                        flag = "🔗" if is_override else "📡"
+                        print(f"      {flag}  {site}{'  [override]' if is_override else ''}...", end=" ", flush=True)
+                        try:
+                            await page.goto(
+                                url,
+                                wait_until="domcontentloaded",
+                                timeout=20000,
+                            )
+                            # aguarda que o conteúdo dinâmico carregue
+                            await page.wait_for_timeout(2500)
+                            html = await page.content()
+                            prices = extract_prices_from_html(html)
+                            price = best_match(prices, query)
+
+                            if price:
+                                results[category][key].setdefault(site, [])
+                                results[category][key][site].append({
+                                    "date":        ts,
+                                    "price":       price,
+                                    "url":         page.url,
+                                    "url_source":  "override" if is_override else "auto",
+                                })
+                                print(f"✅  {price:.2f} €")
+                            else:
+                                print(f"—  sem resultado {prices[:3]}")
+
+                        except Exception as e:
+                            print(f"❌  {str(e)[:60]}")
+
+                        # delay entre pedidos para não ser bloqueado
+                        await asyncio.sleep(random.uniform(1.0, 2.5))
+
+        # ── Programas de fidelização ─────────────────────────────
+        print("\n📋  Programas de Fidelização (iPhones)")
+        results.setdefault("Programas", {})
+
+        for key, programs in DEMO_PROGRAMS.items():
+            # Usa DEMO_PROGRAMS como referência dos modelos a pesquisar
+            results["Programas"].setdefault(key, {})
+            print(f"  🔍  {key}")
+
+            for program, _ in programs.items():
+                url = PROGRAM_URLS[program](key)
+                # Verifica override
+                overrides_local = {}
+                if OVERRIDES_FILE.exists():
+                    with open(OVERRIDES_FILE, encoding="utf-8") as f:
+                        raw = json.load(f)
+                        overrides_local = {k: v for k, v in raw.items() if not k.startswith("_")}
+                override_url = overrides_local.get(key, {}).get(program)
+                if override_url:
+                    url = override_url
+
+                print(f"      {'🔗' if override_url else '📡'}  {program}...", end=" ", flush=True)
+                try:
+                    await page.goto(url, wait_until="domcontentloaded", timeout=20000)
+                    await page.wait_for_timeout(2500)
+                    html = await page.content()
+
+                    price = None
+                    points = None
+
+                    # Extrai preço principal
+                    prices = extract_prices_from_html(html)
+                    price = best_match(prices, key)
+
+                    # Tenta extrair pontos (MEO MEOS / Vodafone Viva)
+                    if "MEOS" in program or "Viva" in program:
+                        for pat in [
+                            r'(\d{1,2}[.,]\d{3})\s*pontos',
+                            r'(\d{3,5})\s*pontos',
+                            r'pontos[:\s]+(\d{3,5})',
+                            r'"points"\s*:\s*(\d{3,5})',
+                        ]:
+                            m = re.search(pat, html, re.IGNORECASE)
+                            if m:
+                                try:
+                                    points = int(m.group(1).replace('.', '').replace(',', ''))
+                                    break
+                                except Exception:
+                                    pass
+
+                    if price:
+                        results["Programas"][key].setdefault(program, []).append({
+                            "date":   ts,
+                            "price":  price,
+                            "points": points,
+                            "url":    page.url,
+                            "url_source": "override" if override_url else "auto",
+                        })
+                        pts_str = f" · {points} pts" if points else ""
+                        print(f"✅  {price:.2f} €{pts_str}")
+                    else:
+                        print(f"—  sem resultado")
+
+                except Exception as e:
+                    print(f"❌  {str(e)[:60]}")
+
+                await asyncio.sleep(random.uniform(1.0, 2.0))
+
+        await browser.close()
+
+    return results
+
+
+# ─────────────────────────────────────────────────────────────
+# Dados demo (sem scraping — valores de referência Apple Store PT)
+# ─────────────────────────────────────────────────────────────
+
+DEMO_BASE_PRICES = {
+    "AirPods 4":              {"": {"Worten":149,  "Rádio Popular":149,  "Darty":149,  "MEO":149,    "Vodafone":149,  "NOS":149  }},
+    "AirPods 4 ANC":          {"": {"Worten":199,  "Rádio Popular":199,  "Darty":199,  "MEO":199,    "Vodafone":199,  "NOS":199  }},
+    "AirPods Pro 3":          {"": {"Worten":249,  "Rádio Popular":249,  "Darty":249,  "MEO":249,    "Vodafone":249,  "NOS":249  }},
+    "AirPods Max USB-C":      {"": {"Worten":579,  "Rádio Popular":579,  "Darty":579,  "MEO":579,    "Vodafone":579,  "NOS":579  }},
+    "iPhone 17 Pro Max 256GB":{"Worten":1479, "Rádio Popular":1479, "Darty":1479, "MEO":1499.99, "Vodafone":1499, "NOS":1479},
+    "iPhone 17 Pro Max 512GB":{"Worten":1709, "Rádio Popular":1709, "Darty":1709, "MEO":1729.99, "Vodafone":1729, "NOS":1709},
+    "iPhone 17 Pro Max 1TB":  {"Worten":1949, "Rádio Popular":1949, "Darty":1949, "MEO":1969.99, "Vodafone":1969, "NOS":1949},
+    "iPhone 17 Pro 256GB":    {"Worten":1279, "Rádio Popular":1279, "Darty":1279, "MEO":1299.99, "Vodafone":1299, "NOS":1279},
+    "iPhone 17 Pro 512GB":    {"Worten":1509, "Rádio Popular":1509, "Darty":1509, "MEO":1529.99, "Vodafone":1529, "NOS":1509},
+    "iPhone 17 Pro 1TB":      {"Worten":1749, "Rádio Popular":1749, "Darty":1749, "MEO":1769.99, "Vodafone":1769, "NOS":1749},
+    "iPhone 17 128GB":        {"Worten":979,  "Rádio Popular":979,  "Darty":979,  "MEO":999.99,  "Vodafone":999,  "NOS":979 },
+    "iPhone 17 256GB":        {"Worten":1099, "Rádio Popular":1099, "Darty":1099, "MEO":1119.99, "Vodafone":1119, "NOS":1099},
+    "iPhone 17 512GB":        {"Worten":1339, "Rádio Popular":1339, "Darty":1339, "MEO":1359.99, "Vodafone":1359, "NOS":1339},
+    "iPhone 17 Air 128GB":    {"Worten":1099, "Rádio Popular":1099, "Darty":1099, "MEO":1119.99, "Vodafone":1119, "NOS":1099},
+    "iPhone 17 Air 256GB":    {"Worten":1229, "Rádio Popular":1229, "Darty":1229, "MEO":1249.99, "Vodafone":1249, "NOS":1229},
+    "iPhone 17e 128GB":       {"Worten":599,  "Rádio Popular":599,  "Darty":599,  "MEO":619.99,  "Vodafone":619,  "NOS":599 },
+    "iPhone 17e 256GB":       {"Worten":729,  "Rádio Popular":729,  "Darty":729,  "MEO":749.99,  "Vodafone":749,  "NOS":729 },
+    "iPhone 16 128GB":        {"Worten":849,  "Rádio Popular":849,  "Darty":849,  "MEO":869.99,  "Vodafone":869,  "NOS":849 },
+    "iPhone 16 256GB":        {"Worten":979,  "Rádio Popular":979,  "Darty":979,  "MEO":999.99,  "Vodafone":999,  "NOS":979 },
+    "iPhone 16 512GB":        {"Worten":1219, "Rádio Popular":1219, "Darty":1219, "MEO":1239.99, "Vodafone":1239, "NOS":1219},
+    "iPhone 16e 128GB":       {"Worten":649,  "Rádio Popular":649,  "Darty":649,  "MEO":669.99,  "Vodafone":669,  "NOS":649 },
+    "iPhone 16e 256GB":       {"Worten":779,  "Rádio Popular":779,  "Darty":779,  "MEO":799.99,  "Vodafone":799,  "NOS":779 },
+    "iPhone 15 128GB":        {"Worten":699,  "Rádio Popular":699,  "Darty":699,  "MEO":699,     "Vodafone":699,  "NOS":699 },
+    "iPhone 15 256GB":        {"Worten":829,  "Rádio Popular":829,  "Darty":829,  "MEO":829,     "Vodafone":829,  "NOS":829 },
+    "iPhone 15 512GB":        {"Worten":1069, "Rádio Popular":1069, "Darty":1069, "MEO":1069,    "Vodafone":1069, "NOS":1069},
+    "Apple Watch SE 3 40mm":  {"Worten":289,  "Rádio Popular":289,  "Darty":289,  "MEO":299.99,  "Vodafone":299,  "NOS":289 },
+    "Apple Watch SE 3 44mm":  {"Worten":319,  "Rádio Popular":319,  "Darty":319,  "MEO":329.99,  "Vodafone":329,  "NOS":319 },
+    "Apple Watch Series 11 42mm":{"Worten":469,"Rádio Popular":469, "Darty":469,  "MEO":489.99,  "Vodafone":489,  "NOS":469 },
+    "Apple Watch Series 11 46mm":{"Worten":499,"Rádio Popular":499, "Darty":499,  "MEO":519.99,  "Vodafone":519,  "NOS":499 },
+    "Apple Watch Ultra 3 49mm":  {"Worten":879,"Rádio Popular":879, "Darty":879,  "MEO":899.99,  "Vodafone":899,  "NOS":879 },
+}
+
+SITE_URLS = {
+    "Worten":        "https://www.worten.pt",
+    "Rádio Popular": "https://www.radiopopular.pt",
+    "Darty":         "https://www.darty.com",
+    "MEO":           "https://loja.meo.pt",
+    "Vodafone":      "https://www.vodafone.pt",
+    "NOS":           "https://www.nos.pt",
+}
+
+CATEGORY_FOR_KEY = {}
+for cat, models in CATALOGUE.items():
+    for model, info in models.items():
+        for variant in info["variants"]:
+            key = f"{model} {variant}".strip()
+            CATEGORY_FOR_KEY[key] = cat
+
+
+# ─────────────────────────────────────────────────────────────
+# Catálogo de Programas de Fidelização (apenas iPhones)
+# ─────────────────────────────────────────────────────────────
+
+# Modelos de iPhone a monitorizar nos programas
+IPHONE_KEYS = [k for k in CATEGORY_FOR_KEY if k.startswith("iPhone")]
+
+PROGRAM_URLS = {
+    "NOS DCN":       lambda q: f"https://www.nos.pt/particulares/equipamentos/pesquisa?q={quote_plus(q)}",
+    "MEO MEOS":      lambda q: f"https://loja.meo.pt/meos/equipamentos/telemoveis?q={quote_plus(q)}",
+    "Vodafone Viva": lambda q: f"https://www.vodafone.pt/loja/viva/telemoveis.html?q={quote_plus(q)}",
+}
+
+# Demo: preços e pontos aproximados para os programas
+# NOS DCN  → só preço (desconto ~5% sobre preço online)
+# MEO MEOS → pontos + preço com desconto
+# Vodafone Viva → pontos + preço com desconto
+DEMO_PROGRAMS = {
+    "iPhone 17 Pro Max 256GB": {
+        "NOS DCN":       {"price": 1419.99, "points": None},
+        "MEO MEOS":      {"price": 1199.99, "points": 5000},
+        "Vodafone Viva": {"price": 1249.99, "points": 4500},
+    },
+    "iPhone 17 Pro Max 512GB": {
+        "NOS DCN":       {"price": 1629.99, "points": None},
+        "MEO MEOS":      {"price": 1399.99, "points": 5500},
+        "Vodafone Viva": {"price": 1449.99, "points": 5000},
+    },
+    "iPhone 17 Pro Max 1TB": {
+        "NOS DCN":       {"price": 1859.99, "points": None},
+        "MEO MEOS":      {"price": 1649.99, "points": 6000},
+        "Vodafone Viva": {"price": 1699.99, "points": 5500},
+    },
+    "iPhone 17 Pro 256GB": {
+        "NOS DCN":       {"price": 1219.99, "points": None},
+        "MEO MEOS":      {"price": 999.99,  "points": 4500},
+        "Vodafone Viva": {"price": 1049.99, "points": 4000},
+    },
+    "iPhone 17 Pro 512GB": {
+        "NOS DCN":       {"price": 1439.99, "points": None},
+        "MEO MEOS":      {"price": 1229.99, "points": 5000},
+        "Vodafone Viva": {"price": 1279.99, "points": 4500},
+    },
+    "iPhone 17 Pro 1TB": {
+        "NOS DCN":       {"price": 1669.99, "points": None},
+        "MEO MEOS":      {"price": 1449.99, "points": 5500},
+        "Vodafone Viva": {"price": 1499.99, "points": 5000},
+    },
+    "iPhone 17 128GB": {
+        "NOS DCN":       {"price": 929.99,  "points": None},
+        "MEO MEOS":      {"price": 749.99,  "points": 3000},
+        "Vodafone Viva": {"price": 799.99,  "points": 2500},
+    },
+    "iPhone 17 256GB": {
+        "NOS DCN":       {"price": 1049.99, "points": None},
+        "MEO MEOS":      {"price": 879.99,  "points": 3500},
+        "Vodafone Viva": {"price": 929.99,  "points": 3000},
+    },
+    "iPhone 17 512GB": {
+        "NOS DCN":       {"price": 1279.99, "points": None},
+        "MEO MEOS":      {"price": 1099.99, "points": 4000},
+        "Vodafone Viva": {"price": 1149.99, "points": 3500},
+    },
+    "iPhone 17 Air 128GB": {
+        "NOS DCN":       {"price": 1049.99, "points": None},
+        "MEO MEOS":      {"price": 879.99,  "points": 3500},
+        "Vodafone Viva": {"price": 929.99,  "points": 3000},
+    },
+    "iPhone 17 Air 256GB": {
+        "NOS DCN":       {"price": 1169.99, "points": None},
+        "MEO MEOS":      {"price": 999.99,  "points": 4000},
+        "Vodafone Viva": {"price": 1049.99, "points": 3500},
+    },
+    "iPhone 17e 128GB": {
+        "NOS DCN":       {"price": 569.99,  "points": None},
+        "MEO MEOS":      {"price": 449.99,  "points": 2000},
+        "Vodafone Viva": {"price": 499.99,  "points": 1500},
+    },
+    "iPhone 17e 256GB": {
+        "NOS DCN":       {"price": 699.99,  "points": None},
+        "MEO MEOS":      {"price": 579.99,  "points": 2500},
+        "Vodafone Viva": {"price": 629.99,  "points": 2000},
+    },
+    "iPhone 16 128GB": {
+        "NOS DCN":       {"price": 809.99,  "points": None},
+        "MEO MEOS":      {"price": 649.99,  "points": 2500},
+        "Vodafone Viva": {"price": 699.99,  "points": 2000},
+    },
+    "iPhone 16 256GB": {
+        "NOS DCN":       {"price": 929.99,  "points": None},
+        "MEO MEOS":      {"price": 779.99,  "points": 3000},
+        "Vodafone Viva": {"price": 829.99,  "points": 2500},
+    },
+    "iPhone 16 512GB": {
+        "NOS DCN":       {"price": 1159.99, "points": None},
+        "MEO MEOS":      {"price": 999.99,  "points": 3500},
+        "Vodafone Viva": {"price": 1049.99, "points": 3000},
+    },
+    "iPhone 16e 128GB": {
+        "NOS DCN":       {"price": 619.99,  "points": None},
+        "MEO MEOS":      {"price": 499.99,  "points": 2000},
+        "Vodafone Viva": {"price": 549.99,  "points": 1500},
+    },
+    "iPhone 16e 256GB": {
+        "NOS DCN":       {"price": 739.99,  "points": None},
+        "MEO MEOS":      {"price": 629.99,  "points": 2500},
+        "Vodafone Viva": {"price": 679.99,  "points": 2000},
+    },
+    "iPhone 15 128GB": {
+        "NOS DCN":       {"price": 659.99,  "points": None},
+        "MEO MEOS":      {"price": 549.99,  "points": 2000},
+        "Vodafone Viva": {"price": 599.99,  "points": 1500},
+    },
+    "iPhone 15 256GB": {
+        "NOS DCN":       {"price": 789.99,  "points": None},
+        "MEO MEOS":      {"price": 679.99,  "points": 2500},
+        "Vodafone Viva": {"price": 729.99,  "points": 2000},
+    },
+    "iPhone 15 512GB": {
+        "NOS DCN":       {"price": 1019.99, "points": None},
+        "MEO MEOS":      {"price": 899.99,  "points": 3000},
+        "Vodafone Viva": {"price": 949.99,  "points": 2500},
+    },
+}
+
+
+def run_demo(existing: dict) -> dict:
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    count = 0
+    for key, site_prices in DEMO_BASE_PRICES.items():
+        # AirPods têm estrutura diferente: {variant: {site: price}}
+        if isinstance(list(site_prices.values())[0], dict):
+            for variant, sp in site_prices.items():
+                full_key = f"{key} {variant}".strip()
+                cat = CATEGORY_FOR_KEY.get(full_key, "AirPods")
+                existing.setdefault(cat, {}).setdefault(full_key, {})
+                for site, price in sp.items():
+                    existing[cat][full_key].setdefault(site, []).append(
+                        {"date": ts, "price": float(price), "url": SITE_URLS[site]}
+                    )
+                    count += 1
+        else:
+            cat = CATEGORY_FOR_KEY.get(key, "iPhone")
+            existing.setdefault(cat, {}).setdefault(key, {})
+            for site, price in site_prices.items():
+                existing[cat][key].setdefault(site, []).append(
+                    {"date": ts, "price": float(price), "url": SITE_URLS[site]}
+                )
+                count += 1
+    print(f"  ✅  {count} entradas de hoje registadas (preços de referência Apple Store PT)")
+
+    # Programas de fidelização
+    prog_count = 0
+    existing.setdefault("Programas", {})
+    for key, programs in DEMO_PROGRAMS.items():
+        existing["Programas"].setdefault(key, {})
+        for program, info in programs.items():
+            existing["Programas"][key].setdefault(program, []).append({
+                "date":   ts,
+                "price":  float(info["price"]),
+                "points": info["points"],
+                "url":    SITE_URLS.get(program.split()[0], "#"),
+            })
+            prog_count += 1
+    print(f"  ✅  {prog_count} entradas de programas registadas (NOS DCN · MEO MEOS · Vodafone Viva)")
+    return existing
+
+
+# ─────────────────────────────────────────────────────────────
+# Persistência
+# ─────────────────────────────────────────────────────────────
+
+def load_data() -> dict:
+    if DATA_FILE.exists():
+        with open(DATA_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
+def save_data(data: dict) -> None:
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    total = sum(
+        len(h)
+        for cat in data.values()
+        for model in cat.values()
+        for h in model.values()
+    )
+    print(f"  ✅  Guardado em {DATA_FILE.name} ({total} entradas totais)")
+
+
+def merge(existing: dict, new_results: dict) -> dict:
+    for cat, models in new_results.items():
+        existing.setdefault(cat, {})
+        for key, sites in models.items():
+            existing[cat].setdefault(key, {})
+            for site, entries in sites.items():
+                existing[cat][key].setdefault(site, [])
+                existing[cat][key][site].extend(entries)
+    return existing
+
+
+# ─────────────────────────────────────────────────────────────
+# Main
+# ─────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(description="🍎 Apple Price Tracker")
+    parser.add_argument("--demo", action="store_true",
+                        help="Regista preços de referência sem fazer scraping")
+    args = parser.parse_args()
+
+    existing = load_data()
+
+    if args.demo:
+        print("📋  Modo demo — preços de referência Apple Store PT")
+        existing = run_demo(existing)
+    else:
+        print("🌐  A fazer scraping com Playwright (Chromium headless)...")
+        new_data = asyncio.run(scrape_all_async())
+        existing  = merge(existing, new_data)
+
+    save_data(existing)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,32 @@
+{
+  "Vodafone | iPhone 17 Pro Max 256GB": {
+    "url": "https://www.vodafone.pt/loja/telemoveis/apple/iphone-17-pro-max-5g.html?color=prateado&storage=256&segment=consumer&paymentType=pvp",
+    "prices": [],
+    "html_len": 941913
+  },
+  "Vodafone | iPhone 17 Pro Max 512GB": {
+    "url": "https://www.vodafone.pt/loja/telemoveis/apple/iphone-17-pro-max-5g.html?color=prateado&storage=512&segment=consumer&paymentType=pvp",
+    "prices": [],
+    "html_len": 941914
+  },
+  "MEO | iPhone 17 Pro Max 256GB": {
+    "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-256gb",
+    "prices": [],
+    "html_len": 181065
+  },
+  "MEO | iPhone 17 Pro Max 512GB": {
+    "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-512gb",
+    "prices": [],
+    "html_len": 184663
+  },
+  "Rádio Popular | iPhone 17 Pro Max": {
+    "url": "https://www.radiopopular.pt/pesquisa/?q=iphone+17+pro+max",
+    "prices": [],
+    "html_len": 1272954
+  },
+  "Rádio Popular | AirPods Pro 2": {
+    "url": "https://www.radiopopular.pt/pesquisa/?q=airpods+pro+2",
+    "prices": [],
+    "html_len": 1272954
+  }
+}
