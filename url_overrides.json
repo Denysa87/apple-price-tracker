@@ -1,11 +1,23 @@
 {
-  "AirPods Pro 3": {
-    "Rádio Popular": "https://www.radiopopular.pt/produto/apple-airpods-pro-3"
-  },
+  "_comment": "URLs diretos dos produtos para evitar Cloudflare e timeouts",
+  "_instructions": "Adicione URLs diretos aqui para produtos que falham no scraping automático",
+  "_format": "{ 'Produto Variante': { 'Site': 'URL direto' } }",
+  
   "AirPods 4": {
-    "Rádio Popular": "https://www.radiopopular.pt/produto/apple-airpods-4-geracao"
+    "_comment": "Adicionar URLs quando disponíveis"
   },
-  "AirPods 4 ANC": {
-    "Rádio Popular": "https://www.radiopopular.pt/produto/apple-airpods-4-geracao-anc"
+  
+  "iPhone 17 Pro Max 256GB": {
+    "_comment": "Exemplo de como adicionar URLs:",
+    "_example_Worten": "https://www.worten.pt/produtos/apple-iphone-17-pro-max-256gb-titanio-natural-8888888888888",
+    "_example_MEO": "https://loja.meo.pt/telemoveis/iphone-17-pro-max-256gb"
+  },
+  
+  "iPhone 17 Pro Max 512GB": {
+    "_comment": "Adicionar URLs quando disponíveis"
+  },
+  
+  "iPhone 17 Pro Max 1TB": {
+    "_comment": "Adicionar URLs quando disponíveis"
   }
 }

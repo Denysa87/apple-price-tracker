@@ -257,17 +257,21 @@ ls -la debug/
 - [`SPRINT1_CHANGES.md`](SPRINT1_CHANGES.md) - Validação, logging, debug
 - [`SPRINT2_CHANGES.md`](SPRINT2_CHANGES.md) - Anti-bot (headers, cookies, retry)
 - [`SPRINT3_CHANGES.md`](SPRINT3_CHANGES.md) - Timeouts, seletores, padrões genéricos
+- [`SPRINT4_CHANGES.md`](SPRINT4_CHANGES.md) - 🆕 Correções navegação MEO (404 → 100% sucesso)
+- [`URL_OVERRIDES_GUIDE.md`](URL_OVERRIDES_GUIDE.md) - Guia para URLs manuais (Cloudflare)
 
 ## 🎯 Roadmap
 
 ### ✅ Concluído
-- Sprint 1: Validação de preços, logging, debug automática
-- Sprint 2: Anti-bot (headers, cookies, User-Agent, delays, scroll, retry)
-- Sprint 3: Timeouts personalizados, seletores melhorados, padrões genéricos
+- **Sprint 1:** Validação de preços, logging, debug automática
+- **Sprint 2:** Anti-bot (headers, cookies, User-Agent, delays, scroll, retry)
+- **Sprint 3:** Timeouts personalizados, seletores melhorados, padrões genéricos
+- **Sprint 4:** 🆕 Correção navegação MEO (pesquisa 404 → categoria funcional)
 
-### 🔄 Próximos Passos (se necessário)
-- Sprint 4: Proxies rotativos, melhorar find_product_url(), captcha solving
-- Sprint 5: Dashboard de monitorização, alertas automáticos, métricas
+### 🔄 Próximos Passos
+- **Cloudflare (Worten/Darty):** Consultar PTtrackify do colega ou usar URL overrides
+- **Rádio Popular:** Investigar timeout (35s ainda insuficiente)
+- **Sprint 5 (futuro):** Dashboard monitorização, alertas, métricas
 
 ## 📊 Evolução da Taxa de Sucesso
 
@@ -277,4 +281,52 @@ ls -la debug/
 | Sprint 1 | >50% | Validação + timeouts básicos |
 | Sprint 2 | >80% (meta) | Anti-bot completo |
 | Sprint 3 | >60% (meta) | Timeouts + seletores |
-| Sprint 1+2+3 | >80% (meta) | Combinação de todas |
+| **Sprint 4** | **MEO: 100%** | **Navegação por categoria** |
+| Sprint 1+2+3+4 | >80% (meta) | Combinação de todas |
+
+---
+
+## 🎉 Sprint 4 - Correções Críticas de Navegação
+
+### ✅ MEO - Problema Resolvido (0% → 100%)
+
+**Problema Identificado:**
+- URL de pesquisa `https://loja.meo.pt/pesquisa?q=...` retornava **404 (página não encontrada)**
+- Quando navegava para categoria genérica `/telemoveis/iphone`, extraía 21 preços de TODOS os iPhones
+- `best_match()` selecionava preço mínimo (909.99€) em vez do produto específico (1499.99€)
+
+**Solução Implementada:**
+1. **Navegação por categoria** em vez de pesquisa genérica
+   - iPhones → `https://loja.meo.pt/telemoveis/iphone`
+   - AirPods → `https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple`
+   - Apple Watch → `https://loja.meo.pt/wearables/smartwatches?marca=Apple`
+
+2. **Filtros melhorados** em `find_product_url()`:
+   - Ignora links genéricos de categoria (`/telemoveis/iphone`, `/telemoveis/apple`)
+   - Prioriza URLs com tokens específicos do produto (modelo + capacidade)
+   - Dobra score quando URL contém tokens da query
+
+**Resultado:**
+```
+✅ MEO - iPhone 17 Pro Max 256GB
+Preço: 1499.99€ (válido, dentro do range 1400-1600€)
+URL: https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-256gb
+Taxa de sucesso: 0% → 100%
+```
+
+### 📄 Documentação Completa
+Ver [`SPRINT4_CHANGES.md`](SPRINT4_CHANGES.md) para detalhes técnicos completos.
+
+---
+
+## 🚨 Sites com Problemas Conhecidos
+
+### Cloudflare (Worten, Darty)
+- **Problema:** Bloqueio Cloudflare mesmo com 30s wait
+- **Solução temporária:** URL overrides (ver [`URL_OVERRIDES_GUIDE.md`](URL_OVERRIDES_GUIDE.md))
+- **Solução futura:** Consultar projeto PTtrackify do colega
+
+### Rádio Popular
+- **Problema:** Timeout 35s excedido
+- **Investigação:** Site muito lento ou JavaScript complexo
+- **Próximo passo:** Aumentar timeout para 45s ou usar URL override

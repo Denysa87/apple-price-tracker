@@ -225,11 +225,23 @@ from urllib.parse import quote_plus
 
 def search_url(site: str, query: str) -> str:
     q = quote_plus(query)
+    
+    # MEO: A pesquisa genérica não funciona (404), usar categorias diretas
+    if site == "MEO":
+        query_lower = query.lower()
+        if "iphone" in query_lower:
+            return "https://loja.meo.pt/telemoveis/iphone"
+        elif "airpods" in query_lower:
+            return "https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple"
+        elif "watch" in query_lower:
+            return "https://loja.meo.pt/wearables/smartwatches?marca=Apple"
+        else:
+            return f"https://loja.meo.pt/telemoveis"
+    
     return {
         "Worten":        f"https://www.worten.pt/search?query={q}",
         "Rádio Popular": f"https://www.radiopopular.pt/pesquisa/?q={q}",
         "Darty":         f"https://www.darty.com/nav/recherche?text={q}",
-        "MEO":           f"https://loja.meo.pt/pesquisa?q={q}",
         "Vodafone":      f"https://www.vodafone.pt/loja/pesquisa.html?q={q}",
         "NOS":           f"https://www.nos.pt/particulares/equipamentos/pesquisa?q={q}",
     }[site]
@@ -506,15 +518,25 @@ def find_product_url(html: str, query: str, site: str, base_url: str) -> Optiona
 
     elif site == "MEO":
         # Links: href com '/telemoveis/' ou '/equipamentos/' ou slug de produto
+        # IMPORTANTE: Evitar links genéricos como "/telemoveis/iphone" (lista todos os iPhones)
+        # Preferir links específicos com modelo completo no URL
         for a in soup.find_all("a", href=True):
             href = a.get("href", "")
+            # Ignorar links genéricos de categoria
+            if href.endswith("/telemoveis/iphone") or href.endswith("/telemoveis/apple"):
+                continue
             if any(p in href for p in ["/telemoveis/", "/equipamentos/", "/acessorios/", "/produto/"]):
                 title = a.get_text(strip=True) or a.get("title", "") or ""
                 # Também verificar atributo data-name ou aria-label
                 if not title:
                     title = a.get("aria-label", "") or a.get("data-name", "") or href
                 score = relevance(title)
+                # Aumentar score se o URL contém tokens específicos (modelo + capacidade)
+                href_lower = href.lower()
                 if score > 0:
+                    # Bonus se URL tem modelo específico (ex: "iphone-17-pro-max")
+                    url_tokens = sum(1 for tok in tokens if tok in href_lower)
+                    score += url_tokens * 2  # Dobrar peso dos tokens no URL
                     candidates.append((score, make_absolute(href), title[:80]))
 
     elif site == "Vodafone":

@@ -14,3 +14,48 @@
 2026-03-17 15:20:23 [INFO]    Preço selecionado: 909.99€
 2026-03-17 15:20:23 [WARNING] ⚠️  Preço rejeitado: Preço 909.99€ fora do range esperado (1400-1600€)
 2026-03-17 15:20:23 [INFO] 🔍 Debug guardado em /Users/denysa_/Documents/Enchanté/Conversations/9B1EF1BB-F107-4D91-974B-D026CB3CD0DB/debug/20260317_152023
+2026-03-17 15:50:36 [INFO] 🧪 Testando: iPhone 17 Pro Max 256GB em MEO
+2026-03-17 15:50:36 [INFO]    Headless: True | Debug: True
+2026-03-17 15:50:36 [INFO]    Categoria: iPhone
+2026-03-17 15:50:36 [INFO]    Query: Apple iPhone 17 Pro Max 256GB
+2026-03-17 15:50:36 [INFO]    Range esperado: 1400€ - 1600€
+2026-03-17 15:50:36 [INFO]    URL: https://loja.meo.pt/pesquisa?q=Apple+iPhone+17+Pro+Max+256GB
+2026-03-17 15:50:36 [INFO]    Tipo: Automático
+2026-03-17 15:50:37 [INFO] 🌐 Navegando para https://loja.meo.pt/pesquisa?q=Apple+iPhone+17+Pro+Max+256GB...
+2026-03-17 15:51:03 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 15:51:08 [INFO] 🔍 Procurando link do produto...
+2026-03-17 15:51:08 [INFO] ➡️  Navegando para produto: https://loja.meo.pt/telemoveis/iphone...
+2026-03-17 15:51:16 [INFO] 💰 Extraindo preços...
+2026-03-17 15:51:16 [INFO]    Preços encontrados: [609.99, 669.99, 739.99, 799.99, 909.99, 929.99, 989.99, 1049.99, 1119.99, 1139.99, 1239.99, 1249.99, 1329.99, 1349.99, 1499.99, 1569.99, 1579.99, 1749.99, 1839.99, 1849.99, 1999.99]
+2026-03-17 15:51:16 [INFO]    Preço selecionado: 909.99€
+2026-03-17 15:51:16 [WARNING] ⚠️  Preço rejeitado: Preço 909.99€ fora do range esperado (1400-1600€)
+2026-03-17 15:51:16 [INFO] 🔍 Debug guardado em /Users/denysa_/Documents/Enchanté/Conversations/9B1EF1BB-F107-4D91-974B-D026CB3CD0DB/debug/20260317_155116
+2026-03-17 15:53:36 [INFO] 🧪 Testando: iPhone 17 Pro Max 256GB em MEO
+2026-03-17 15:53:36 [INFO]    Headless: True | Debug: True
+2026-03-17 15:53:36 [INFO]    Categoria: iPhone
+2026-03-17 15:53:36 [INFO]    Query: Apple iPhone 17 Pro Max 256GB
+2026-03-17 15:53:36 [INFO]    Range esperado: 1400€ - 1600€
+2026-03-17 15:53:36 [INFO]    URL: https://loja.meo.pt/pesquisa?q=Apple+iPhone+17+Pro+Max+256GB
+2026-03-17 15:53:36 [INFO]    Tipo: Automático
+2026-03-17 15:53:37 [INFO] 🌐 Navegando para https://loja.meo.pt/pesquisa?q=Apple+iPhone+17+Pro+Max+256GB...
+2026-03-17 15:54:03 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 15:54:08 [INFO] 🔍 Procurando link do produto...
+2026-03-17 15:54:08 [INFO] 💰 Extraindo preços...
+2026-03-17 15:54:08 [INFO]    Preços encontrados: []
+2026-03-17 15:54:08 [WARNING] ❌ Nenhum preço encontrado
+2026-03-17 15:54:08 [INFO] 🔍 Debug guardado em /Users/denysa_/Documents/Enchanté/Conversations/9B1EF1BB-F107-4D91-974B-D026CB3CD0DB/debug/20260317_155408
+2026-03-17 16:00:00 [INFO] 🧪 Testando: iPhone 17 Pro Max 256GB em MEO
+2026-03-17 16:00:00 [INFO]    Headless: True | Debug: True
+2026-03-17 16:00:00 [INFO]    Categoria: iPhone
+2026-03-17 16:00:00 [INFO]    Query: Apple iPhone 17 Pro Max 256GB
+2026-03-17 16:00:00 [INFO]    Range esperado: 1400€ - 1600€
+2026-03-17 16:00:00 [INFO]    URL: https://loja.meo.pt/telemoveis/iphone
+2026-03-17 16:00:00 [INFO]    Tipo: Automático
+2026-03-17 16:00:01 [INFO] 🌐 Navegando para https://loja.meo.pt/telemoveis/iphone...
+2026-03-17 16:00:29 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 16:00:34 [INFO] 🔍 Procurando link do produto...
+2026-03-17 16:00:35 [INFO] ➡️  Navegando para produto: https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-256gb...
+2026-03-17 16:00:43 [INFO] 💰 Extraindo preços...
+2026-03-17 16:00:43 [INFO]    Preços encontrados: [59.99, 64.99, 249.99, 1499.99, 1559.98, 1564.98, 1749.98]
+2026-03-17 16:00:43 [INFO]    Preço selecionado: 1499.99€
+2026-03-17 16:00:43 [INFO] ✅ Preço válido: 1499.99€
