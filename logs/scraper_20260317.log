@@ -59,3 +59,29 @@
 2026-03-17 16:00:43 [INFO]    Preços encontrados: [59.99, 64.99, 249.99, 1499.99, 1559.98, 1564.98, 1749.98]
 2026-03-17 16:00:43 [INFO]    Preço selecionado: 1499.99€
 2026-03-17 16:00:43 [INFO] ✅ Preço válido: 1499.99€
+2026-03-17 16:07:59 [INFO] 🧪 Testando: iPhone 17 Pro Max 256GB em Worten
+2026-03-17 16:07:59 [INFO]    Headless: True | Debug: True
+2026-03-17 16:07:59 [INFO]    Categoria: iPhone
+2026-03-17 16:07:59 [INFO]    Query: Apple iPhone 17 Pro Max 256GB
+2026-03-17 16:07:59 [INFO]    Range esperado: 1400€ - 1600€
+2026-03-17 16:07:59 [INFO]    URL: https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-256-gb-azul-escuro-8600362
+2026-03-17 16:07:59 [INFO]    Tipo: Override
+2026-03-17 16:07:59 [INFO] 🌐 Navegando para https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-256-gb-azul-escuro-86...
+2026-03-17 16:08:16 [INFO] ⏱️  Aguardando 3000ms...
+2026-03-17 16:08:20 [INFO] 💰 Extraindo preços...
+2026-03-17 16:08:20 [INFO]    Preços encontrados: [59.99, 68.41, 69.39, 88.71, 99.99, 100.0, 149.99, 179.99, 249.99, 1423.0, 1423.01, 1429.0, 1500.0, 2000.0, 5070.0, 5518.0, 5766.0, 5771.0, 5778.0, 5783.0]
+2026-03-17 16:08:20 [INFO]    Preço selecionado: 1423.00€
+2026-03-17 16:08:20 [INFO] ✅ Preço válido: 1423.00€
+2026-03-17 16:11:47 [INFO] 🧪 Testando: iPhone 17 Pro Max 256GB em Worten
+2026-03-17 16:11:47 [INFO]    Headless: True | Debug: True
+2026-03-17 16:11:47 [INFO]    Categoria: iPhone
+2026-03-17 16:11:47 [INFO]    Query: Apple iPhone 17 Pro Max 256GB
+2026-03-17 16:11:47 [INFO]    Range esperado: 1400€ - 1600€
+2026-03-17 16:11:47 [INFO]    URL: https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-256-gb-azul-escuro-8600362
+2026-03-17 16:11:47 [INFO]    Tipo: Override
+2026-03-17 16:11:48 [INFO] 🌐 Navegando para https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-256-gb-azul-escuro-86...
+2026-03-17 16:12:05 [INFO] ⏱️  Aguardando 3000ms...
+2026-03-17 16:12:08 [INFO] 💰 Extraindo preços...
+2026-03-17 16:12:08 [INFO]    Preços encontrados: [59.99, 68.41, 69.39, 88.71, 99.99, 100.0, 149.99, 179.99, 249.99, 1423.0, 1423.01, 1429.0, 1500.0, 2000.0, 5070.0, 5518.0, 5766.0, 5771.0, 5778.0, 5783.0]
+2026-03-17 16:12:08 [INFO]    Preço selecionado: 1423.00€
+2026-03-17 16:12:08 [INFO] ✅ Preço válido: 1423.00€

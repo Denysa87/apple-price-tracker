@@ -8,9 +8,8 @@
   },
   
   "iPhone 17 Pro Max 256GB": {
-    "_comment": "Exemplo de como adicionar URLs:",
-    "_example_Worten": "https://www.worten.pt/produtos/apple-iphone-17-pro-max-256gb-titanio-natural-8888888888888",
-    "_example_MEO": "https://loja.meo.pt/telemoveis/iphone-17-pro-max-256gb"
+    "_comment": "URLs diretos para evitar Cloudflare",
+    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-256-gb-azul-escuro-8600362"
   },
   
   "iPhone 17 Pro Max 512GB": {
