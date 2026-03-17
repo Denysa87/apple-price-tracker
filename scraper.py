@@ -7,6 +7,12 @@ Usa Playwright (Chromium headless) para scraping de sites JavaScript.
 Uso local (demo):     python3 scraper.py --demo
 Uso local (real):     python3 scraper.py
 GitHub Actions:       python3 scraper.py  (automático via workflow)
+
+Sprint 1 Melhorias:
+- ✅ Timeouts aumentados (5-8s para sites JS-heavy, 15s para Cloudflare)
+- ✅ Validação de preços por categoria (elimina bug 1499€)
+- ✅ Sistema de logging estruturado (arquivo + console)
+- ✅ Debug info guardada em caso de erro
 """
 
 import argparse
@@ -18,6 +24,26 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+
+# Importar utilitários do Sprint 1
+try:
+    from utils.validators import validate_price, is_likely_accessory_price
+    from utils.logger import setup_logger, log_scraping_success, log_scraping_failure, log_price_validation_failed, log_cloudflare_block
+    UTILS_AVAILABLE = True
+except ImportError:
+    UTILS_AVAILABLE = False
+    print("⚠️  Utilitários não disponíveis. Execute: pip install -r requirements.txt")
+
+# Importar utilitários do Sprint 2 (Anti-Bot)
+try:
+    from utils.anti_bot import (
+        get_random_user_agent, get_realistic_headers, get_random_delay,
+        simulate_human_behavior, CookieManager, RetryStrategy
+    )
+    ANTI_BOT_AVAILABLE = True
+except ImportError:
+    ANTI_BOT_AVAILABLE = False
+    print("⚠️  Utilitários anti-bot não disponíveis")
 
 try:
     from playwright_stealth import stealth_async as _stealth_async
@@ -544,6 +570,37 @@ def is_cloudflare_blocked(html: str) -> bool:
 async def scrape_all_async() -> dict:
     from playwright.async_api import async_playwright
 
+    # Configurar logger (Sprint 1)
+    logger = setup_logger() if UTILS_AVAILABLE else None
+    if logger:
+        logger.info("🚀 Iniciando scraping com melhorias Sprint 1 + Sprint 2")
+        logger.info(f"   Sprint 1: Timeouts aumentados, validação de preços, logging")
+        logger.info(f"   Sprint 2: Anti-bot (headers, cookies, retry, scroll)")
+    
+    # Criar diretórios necessários
+    logs_dir = Path(__file__).parent / "logs"
+    debug_dir = Path(__file__).parent / "debug"
+    cookies_dir = Path(__file__).parent / ".cookies"
+    logs_dir.mkdir(exist_ok=True)
+    debug_dir.mkdir(exist_ok=True)
+    cookies_dir.mkdir(exist_ok=True)
+    
+    # 🆕 Sprint 2: Inicializar componentes anti-bot
+    cookie_manager = CookieManager(cookies_dir / "cookies.json") if ANTI_BOT_AVAILABLE else None
+    retry_strategy = RetryStrategy(max_retries=3, base_delay=2.0) if ANTI_BOT_AVAILABLE else None
+    
+    # 🆕 Sprint 2: User-Agent aleatório
+    user_agent = get_random_user_agent() if ANTI_BOT_AVAILABLE else (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+    
+    if logger and ANTI_BOT_AVAILABLE:
+        logger.info(f"   User-Agent: {user_agent[:60]}...")
+        logger.info(f"   Cookies persistentes: {'Ativados' if cookie_manager else 'Desativados'}")
+        logger.info(f"   Retry strategy: {retry_strategy.max_retries}x com backoff exponencial")
+
     memory = URLMemory()
     overrides = {}
     if OVERRIDES_FILE.exists():
@@ -553,6 +610,10 @@ async def scrape_all_async() -> dict:
 
     results = {}  # { category:
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    # Contadores para estatísticas (Sprint 1)
+    stats = {"total": 0, "successful": 0, "failed": 0, "validation_failed": 0, "cloudflare_blocks": 0}
+    start_time = time.time()
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -566,21 +627,20 @@ async def scrape_all_async() -> dict:
                 "--window-size=1280,800",
             ],
         )
+        # 🆕 Sprint 2: Headers realistas e User-Agent aleatório
+        headers = get_realistic_headers(user_agent) if ANTI_BOT_AVAILABLE else {
+            "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"macOS"',
+        }
+        
         context = await browser.new_context(
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
+            user_agent=user_agent,
             locale="pt-PT",
             viewport={"width": 1280, "height": 800},
-            extra_http_headers={
-                "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-                "sec-ch-ua-mobile": "?0",
-                "sec-ch-ua-platform": '"macOS"',
-            },
+            extra_http_headers=headers,
         )
         # Esconder navigator.webdriver (detectado pelo Cloudflare)
         await context.add_init_script(
@@ -615,6 +675,7 @@ async def scrape_all_async() -> dict:
                         url = override_url if override_url else search_url(site, query)
                         is_override = bool(override_url)
                         flag = "🔗" if is_override else "📡"
+                        stats["total"] += 1
                         print(f"      {flag}  {site}{'  [override]' if is_override else ''}...", end=" ", flush=True)
                         try:
                             # Alguns sites precisam de networkidle para carregar resultados via JS
@@ -622,8 +683,8 @@ async def scrape_all_async() -> dict:
                             await page.goto(url, wait_until=wait_mode, timeout=25000)
                             # Fechar banner de cookies antes de tudo
                             await dismiss_cookie_banner(page)
-                            # Espera extra base
-                            extra_wait = 3000 if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else 2000
+                            # 🆕 Sprint 1: Espera extra aumentada (3s → 5s para sites JS-heavy)
+                            extra_wait = 5000 if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else 3000
                             await page.wait_for_timeout(extra_wait)
                             # Tentar aguardar pelos cards de produto (JS frameworks)
                             site_sel = SITE_PRODUCT_SELECTORS.get(site, "")
@@ -633,12 +694,20 @@ async def scrape_all_async() -> dict:
                                 except Exception:
                                     pass  # timeout — continuar com o que temos
                             html = await page.content()
-                            # Detectar Cloudflare IUAM — esperar 8s para o challenge JS completar
+                            # 🆕 Sprint 2: Simular comportamento humano (scroll)
+                            if ANTI_BOT_AVAILABLE:
+                                await simulate_human_behavior(page, logger)
+                            
+                            # 🆕 Sprint 1: Cloudflare wait aumentado (8s → 15s)
                             if is_cloudflare_blocked(html):
-                                await page.wait_for_timeout(8000)
+                                if logger:
+                                    log_cloudflare_block(logger, site)
+                                stats["cloudflare_blocks"] += 1
+                                await page.wait_for_timeout(15000)
                                 html = await page.content()
                                 if is_cloudflare_blocked(html):
                                     print(f"⛔  Cloudflare")
+                                    stats["failed"] += 1
                                     continue
 
                             # Se não é override, tentar navegar para a página do produto
@@ -663,6 +732,39 @@ async def scrape_all_async() -> dict:
                             price = best_match(prices, query)
 
                             if price:
+                                # 🆕 Sprint 1: Validar preço antes de guardar
+                                if UTILS_AVAILABLE:
+                                    is_valid, validation_reason = validate_price(price, key)
+                                    
+                                    # Verificar se é preço de acessório
+                                    if is_valid and is_likely_accessory_price(price, key):
+                                        is_valid = False
+                                        validation_reason = f"Preço {price:.2f}€ muito baixo - provavelmente acessório"
+                                    
+                                    if not is_valid:
+                                        print(f"⚠️  {price:.2f}€ rejeitado: {validation_reason}")
+                                        if logger:
+                                            log_price_validation_failed(logger, site, key, price, validation_reason)
+                                        stats["validation_failed"] += 1
+                                        stats["failed"] += 1
+                                        
+                                        # Guardar debug info
+                                        try:
+                                            debug_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                            debug_path = debug_dir / debug_timestamp
+                                            debug_path.mkdir(parents=True, exist_ok=True)
+                                            await page.screenshot(path=debug_path / f"{site}_{key.replace(' ', '_')}_invalid.png")
+                                            (debug_path / f"{site}_{key.replace(' ', '_')}_invalid.html").write_text(html, encoding="utf-8")
+                                            if logger:
+                                                logger.info(f"🔍 Debug guardado: {debug_path}")
+                                        except Exception:
+                                            pass
+                                        
+                                        if is_override:
+                                            memory.handle_override_failure(key, site, overrides)
+                                        continue
+                                
+                                # Preço válido - guardar
                                 results[category][key].setdefault(site, [])
                                 results[category][key][site].append({
                                     "date":       ts,
@@ -671,21 +773,47 @@ async def scrape_all_async() -> dict:
                                     "url_source": "override" if is_override else "auto",
                                 })
                                 print(f"✅  {price:.2f} €")
+                                stats["successful"] += 1
+                                if logger:
+                                    log_scraping_success(logger, site, key, price, page.url)
                                 if not is_override:
                                     memory.record_success(key, site, page.url, price)
                                 else:
                                     memory.reset_override_failure(key, site)
                             else:
                                 print(f"—  sem resultado {prices[:3]}")
+                                stats["failed"] += 1
+                                if logger:
+                                    log_scraping_failure(logger, site, key, f"Nenhum preço encontrado (tentou: {prices[:3]})")
                                 if is_override:
                                     memory.handle_override_failure(key, site, overrides)
 
                         except Exception as e:
                             print(f"❌  {str(e)[:60]}")
+                            stats["failed"] += 1
+                            if logger:
+                                log_scraping_failure(logger, site, key, str(e)[:100])
+                            
+                            # 🆕 Sprint 1: Guardar debug info em caso de erro
+                            try:
+                                debug_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                                debug_path = debug_dir / debug_timestamp
+                                debug_path.mkdir(parents=True, exist_ok=True)
+                                await page.screenshot(path=debug_path / f"{site}_{key.replace(' ', '_')}_error.png")
+                                html = await page.content()
+                                (debug_path / f"{site}_{key.replace(' ', '_')}_error.html").write_text(html, encoding="utf-8")
+                                (debug_path / f"{site}_{key.replace(' ', '_')}_error.txt").write_text(str(e), encoding="utf-8")
+                                if logger:
+                                    logger.info(f"🔍 Debug guardado: {debug_path}")
+                            except Exception:
+                                pass
+                            
                             if is_override:
                                 memory.handle_override_failure(key, site, overrides)
 
-                        await asyncio.sleep(random.uniform(1.0, 2.5))
+                        # 🆕 Sprint 2: Delay aleatório mais realista (distribuição triangular)
+                        delay = get_random_delay(1.5, 3.5) if ANTI_BOT_AVAILABLE else random.uniform(1.0, 2.5)
+                        await asyncio.sleep(delay)
 
         # ── Programas de fidelização ─────────────────────────────
         print("\n📋  Programas de Fidelização (iPhones)")
@@ -757,6 +885,23 @@ async def scrape_all_async() -> dict:
                 await asyncio.sleep(random.uniform(1.0, 2.0))
 
         await browser.close()
+    
+    # 🆕 Sprint 1: Mostrar resumo de estatísticas
+    duration = time.time() - start_time
+    if logger:
+        from utils.logger import log_summary
+        log_summary(logger, stats["total"], stats["successful"], stats["failed"], duration)
+    
+    print(f"\n{'='*60}")
+    print(f"📊 RESUMO DO SCRAPING (Sprint 1)")
+    print(f"{'='*60}")
+    print(f"Total de tentativas:      {stats['total']}")
+    print(f"✅ Sucessos:              {stats['successful']} ({stats['successful']/stats['total']*100:.1f}%)" if stats['total'] > 0 else "✅ Sucessos:              0")
+    print(f"❌ Falhas:                {stats['failed']}")
+    print(f"⚠️  Validações rejeitadas: {stats['validation_failed']}")
+    print(f"⛔ Bloqueios Cloudflare:  {stats['cloudflare_blocks']}")
+    print(f"⏱️  Duração:               {duration:.1f}s")
+    print(f"{'='*60}\n")
 
     return results
 
