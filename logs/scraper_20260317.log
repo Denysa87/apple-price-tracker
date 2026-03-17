@@ -85,3 +85,70 @@
 2026-03-17 16:12:08 [INFO]    Preços encontrados: [59.99, 68.41, 69.39, 88.71, 99.99, 100.0, 149.99, 179.99, 249.99, 1423.0, 1423.01, 1429.0, 1500.0, 2000.0, 5070.0, 5518.0, 5766.0, 5771.0, 5778.0, 5783.0]
 2026-03-17 16:12:08 [INFO]    Preço selecionado: 1423.00€
 2026-03-17 16:12:08 [INFO] ✅ Preço válido: 1423.00€
+2026-03-17 16:33:14 [INFO] 🧪 Testando: iPhone 17e 256GB em NOS
+2026-03-17 16:33:14 [INFO]    Headless: True | Debug: True
+2026-03-17 16:33:14 [INFO]    Categoria: iPhone
+2026-03-17 16:33:14 [INFO]    Query: Apple iPhone 17e 256GB
+2026-03-17 16:33:14 [INFO]    Range esperado: 550€ - 800€
+2026-03-17 16:33:14 [INFO]    URL: https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&pt=cn
+2026-03-17 16:33:14 [INFO]    Tipo: Override
+2026-03-17 16:33:14 [INFO] 🌐 Navegando para https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&p...
+2026-03-17 16:33:42 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 16:33:47 [INFO] 💰 Extraindo preços...
+2026-03-17 16:33:47 [INFO]    Preços encontrados: [127.99, 589.99, 659.99, 739.99, 789.99, 819.99]
+2026-03-17 16:33:47 [INFO]    Preço selecionado: 589.99€
+2026-03-17 16:33:47 [INFO] ✅ Preço válido: 589.99€
+2026-03-17 16:38:22 [INFO] 🧪 Testando: iPhone 17e 256GB em NOS
+2026-03-17 16:38:22 [INFO]    Headless: True | Debug: True
+2026-03-17 16:38:22 [INFO]    Categoria: iPhone
+2026-03-17 16:38:22 [INFO]    Query: Apple iPhone 17e 256GB
+2026-03-17 16:38:22 [INFO]    Range esperado: 550€ - 800€
+2026-03-17 16:38:22 [INFO]    URL: https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&pt=cn
+2026-03-17 16:38:22 [INFO]    Tipo: Override
+2026-03-17 16:38:22 [INFO] 🌐 Navegando para https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&p...
+2026-03-17 16:38:50 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 16:38:55 [INFO] 💰 Extraindo preços...
+2026-03-17 16:38:55 [INFO]    Preços encontrados: [127.99, 589.99, 659.99, 739.99, 789.99, 819.99]
+2026-03-17 16:38:55 [INFO]    Preço selecionado: 589.99€
+2026-03-17 16:38:55 [INFO] ✅ Preço válido: 589.99€
+2026-03-17 16:39:27 [INFO] 🧪 Testando: iPhone 17e 256GB em NOS
+2026-03-17 16:39:27 [INFO]    Headless: True | Debug: True
+2026-03-17 16:39:27 [INFO]    Categoria: iPhone
+2026-03-17 16:39:27 [INFO]    Query: Apple iPhone 17e 256GB
+2026-03-17 16:39:27 [INFO]    Range esperado: 550€ - 800€
+2026-03-17 16:39:27 [INFO]    URL: https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&pt=cn
+2026-03-17 16:39:27 [INFO]    Tipo: Override
+2026-03-17 16:39:27 [INFO] 🌐 Navegando para https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&p...
+2026-03-17 16:39:54 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 16:39:59 [INFO] 💰 Extraindo preços...
+2026-03-17 16:39:59 [INFO]    Preços encontrados: [127.99, 589.99, 659.99, 739.99, 789.99, 819.99]
+2026-03-17 16:39:59 [INFO]    Preço selecionado: 589.99€
+2026-03-17 16:39:59 [INFO] ✅ Preço válido: 589.99€
+2026-03-17 16:41:50 [INFO] 🧪 Testando: iPhone 17e 256GB em NOS
+2026-03-17 16:41:50 [INFO]    Headless: True | Debug: True
+2026-03-17 16:41:50 [INFO]    Categoria: iPhone
+2026-03-17 16:41:50 [INFO]    Query: Apple iPhone 17e 256GB
+2026-03-17 16:41:50 [INFO]    Range esperado: 550€ - 800€
+2026-03-17 16:41:50 [INFO]    URL: https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&pt=cn
+2026-03-17 16:41:50 [INFO]    Tipo: Override
+2026-03-17 16:41:51 [INFO] 🌐 Navegando para https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&p...
+2026-03-17 16:42:19 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 16:42:24 [INFO] 💰 Extraindo preços...
+2026-03-17 16:42:24 [INFO]    Preços encontrados: [127.99, 589.99, 659.99, 739.99, 789.99, 819.99]
+2026-03-17 16:42:24 [INFO]    Preço selecionado: 589.99€
+2026-03-17 16:42:24 [INFO] ✅ Preço válido: 589.99€
+2026-03-17 16:44:17 [INFO] 🧪 Testando: iPhone 17 256GB em NOS
+2026-03-17 16:44:17 [INFO]    Headless: False | Debug: True
+2026-03-17 16:44:17 [INFO]    Categoria: iPhone
+2026-03-17 16:44:17 [INFO]    Query: Apple iPhone 17 256GB
+2026-03-17 16:44:17 [INFO]    Range esperado: 1050€ - 1250€
+2026-03-17 16:44:17 [INFO]    URL: https://www.nos.pt/particulares/equipamentos/pesquisa?q=Apple+iPhone+17+256GB
+2026-03-17 16:44:17 [INFO]    Tipo: Automático
+2026-03-17 16:44:20 [INFO] 🌐 Navegando para https://www.nos.pt/particulares/equipamentos/pesquisa?q=Apple+iPhone+17+256GB...
+2026-03-17 16:44:44 [INFO] ⏱️  Aguardando 5000ms...
+2026-03-17 16:44:49 [INFO] 🔍 Procurando link do produto...
+2026-03-17 16:44:50 [INFO] 💰 Extraindo preços...
+2026-03-17 16:44:50 [INFO] 🎯 Usando extrator específico para NOS
+2026-03-17 16:44:50 [WARNING]    ⚠️  Extrator NOS falhou, usando método genérico
+2026-03-17 16:44:50 [WARNING] ❌ Nenhum preço encontrado
+2026-03-17 16:44:50 [INFO] 🔍 Debug guardado em /Users/denysa_/Documents/Enchanté/Conversations/9B1EF1BB-F107-4D91-974B-D026CB3CD0DB/debug/20260317_164450

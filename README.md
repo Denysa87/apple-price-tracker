@@ -257,7 +257,8 @@ ls -la debug/
 - [`SPRINT1_CHANGES.md`](SPRINT1_CHANGES.md) - Validação, logging, debug
 - [`SPRINT2_CHANGES.md`](SPRINT2_CHANGES.md) - Anti-bot (headers, cookies, retry)
 - [`SPRINT3_CHANGES.md`](SPRINT3_CHANGES.md) - Timeouts, seletores, padrões genéricos
-- [`SPRINT4_CHANGES.md`](SPRINT4_CHANGES.md) - 🆕 Correções navegação MEO (404 → 100% sucesso)
+- [`SPRINT4_CHANGES.md`](SPRINT4_CHANGES.md) - Correções navegação MEO (404 → 100% sucesso)
+- [`SPRINT5_CHANGES.md`](SPRINT5_CHANGES.md) - 🆕 Extratores específicos NOS/Vodafone (DCN → Online)
 - [`URL_OVERRIDES_GUIDE.md`](URL_OVERRIDES_GUIDE.md) - Guia para URLs manuais (Cloudflare)
 
 ## 🎯 Roadmap
@@ -266,12 +267,13 @@ ls -la debug/
 - **Sprint 1:** Validação de preços, logging, debug automática
 - **Sprint 2:** Anti-bot (headers, cookies, User-Agent, delays, scroll, retry)
 - **Sprint 3:** Timeouts personalizados, seletores melhorados, padrões genéricos
-- **Sprint 4:** 🆕 Correção navegação MEO (pesquisa 404 → categoria funcional)
+- **Sprint 4:** Correção navegação MEO (pesquisa 404 → categoria funcional)
+- **Sprint 5:** 🆕 Extratores específicos NOS/Vodafone (DCN → Online, 589€ → 739€)
 
 ### 🔄 Próximos Passos
 - **Cloudflare (Worten/Darty):** Consultar PTtrackify do colega ou usar URL overrides
 - **Rádio Popular:** Investigar timeout (35s ainda insuficiente)
-- **Sprint 5 (futuro):** Dashboard monitorização, alertas, métricas
+- **Sprint 6 (futuro):** Dashboard monitorização, alertas, métricas
 
 ## 📊 Evolução da Taxa de Sucesso
 
@@ -281,8 +283,9 @@ ls -la debug/
 | Sprint 1 | >50% | Validação + timeouts básicos |
 | Sprint 2 | >80% (meta) | Anti-bot completo |
 | Sprint 3 | >60% (meta) | Timeouts + seletores |
-| **Sprint 4** | **MEO: 100%** | **Navegação por categoria** |
-| Sprint 1+2+3+4 | >80% (meta) | Combinação de todas |
+| Sprint 4 | MEO: 100% | Navegação por categoria |
+| **Sprint 5** | **NOS: 100%** | **Extratores específicos** |
+| Sprint 1+2+3+4+5 | >85% (meta) | Combinação de todas |
 
 ---
 
@@ -316,6 +319,45 @@ Taxa de sucesso: 0% → 100%
 
 ### 📄 Documentação Completa
 Ver [`SPRINT4_CHANGES.md`](SPRINT4_CHANGES.md) para detalhes técnicos completos.
+
+---
+
+## 🎯 Sprint 5 - Extratores Específicos NOS/Vodafone
+
+### ✅ NOS - Problema Resolvido (DCN → Online)
+
+**Problema Identificado:**
+- Página NOS apresenta **múltiplos preços**: [127.99, 589.99, 659.99, 739.99, 789.99, 819.99]
+- Método genérico `best_match()` seleciona **mínimo** (589.99€)
+- **589.99€ é preço DCN** (programa fidelização), não preço online
+- **Erro de 150€ (20%)** - inaceitável para price tracker
+
+**Solução Implementada:**
+1. **Novo módulo:** [`utils/price_extractors.py`](utils/price_extractors.py)
+   - `extract_nos_online_price()` - Extrai "Preço online" (não DCN)
+   - `extract_vodafone_online_price()` - Similar para Vodafone
+   - `should_use_specific_extractor()` - Determina quando usar
+
+2. **Estratégias de extração NOS:**
+   - **Regex:** Procura "Preço online" + preço adjacente
+   - **Playwright:** Localiza elemento com texto "Preço online"
+   - **Fallback:** Máximo (online > DCN)
+
+3. **Integração em [`scraper.py`](scraper.py):**
+   - Verifica se deve usar extrator específico
+   - Usa extrator NOS/Vodafone se disponível
+   - Fallback para método genérico se falhar
+
+**Resultado:**
+```
+✅ NOS - iPhone 17 256GB
+Antes: 589.99€ (DCN - programa fidelização) ❌
+Depois: 739.99€ (Preço online) ✅
+Precisão: 80% → 100% (+20%)
+```
+
+### 📄 Documentação Completa
+Ver [`SPRINT5_CHANGES.md`](SPRINT5_CHANGES.md) para detalhes técnicos completos.
 
 ---
 

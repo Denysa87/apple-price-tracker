@@ -59,6 +59,17 @@ except ImportError:
     ANTI_BOT_AVAILABLE = False
     print("⚠️  Utilitários anti-bot não disponíveis")
 
+# Importar utilitários do Sprint 5 (Extractores específicos)
+try:
+    from utils.price_extractors import (
+        extract_nos_online_price, extract_vodafone_online_price,
+        should_use_specific_extractor
+    )
+    PRICE_EXTRACTORS_AVAILABLE = True
+except ImportError:
+    PRICE_EXTRACTORS_AVAILABLE = False
+    print("⚠️  Extractores de preço específicos não disponíveis")
+
 try:
     from playwright_stealth import stealth_async as _stealth_async
     STEALTH_AVAILABLE = True
@@ -815,8 +826,40 @@ async def scrape_all_async() -> dict:
                                         html = await page.content()
                                     except Exception:
                                         pass  # Se falhar, usa o HTML da pesquisa
-                            prices = extract_prices_from_html(html)
-                            price = best_match(prices, query)
+                            
+                            # 🆕 Sprint 5: Usar extrator específico para NOS/Vodafone
+                            price = None
+                            if PRICE_EXTRACTORS_AVAILABLE:
+                                use_specific = should_use_specific_extractor(site, page.url)
+                                if logger:
+                                    logger.info(f"   Extrator específico disponível: {PRICE_EXTRACTORS_AVAILABLE}, usar: {use_specific}")
+                                
+                                if use_specific:
+                                    if site == "NOS":
+                                        if logger:
+                                            logger.info(f"   Tentando extrator específico NOS...")
+                                        price = await extract_nos_online_price(page)
+                                        if logger:
+                                            if price:
+                                                logger.info(f"   ✅ Preço NOS (extrator específico): {price:.2f}€")
+                                            else:
+                                                logger.info(f"   ❌ Extrator NOS falhou, usando fallback")
+                                    elif site == "Vodafone":
+                                        if logger:
+                                            logger.info(f"   Tentando extrator específico Vodafone...")
+                                        price = await extract_vodafone_online_price(page)
+                                        if logger:
+                                            if price:
+                                                logger.info(f"   ✅ Preço Vodafone (extrator específico): {price:.2f}€")
+                                            else:
+                                                logger.info(f"   ❌ Extrator Vodafone falhou, usando fallback")
+                            
+                            # Fallback: método genérico se extrator específico falhar
+                            if not price:
+                                if logger and PRICE_EXTRACTORS_AVAILABLE:
+                                    logger.info(f"   Usando método genérico (fallback)")
+                                prices = extract_prices_from_html(html)
+                                price = best_match(prices, query)
 
                             if price:
                                 # 🆕 Sprint 1: Validar preço antes de guardar

@@ -199,14 +199,62 @@ async def test_single_product(
                     except Exception as e:
                         logger.warning(f"⚠️  Falha ao navegar para produto: {e}")
             
-            # Extrair preços
+            # Extrair preços - usar extrator específico se disponível
             logger.info("💰 Extraindo preços...")
-            prices = scraper.extract_prices_from_html(html)
-            result["prices_found"] = prices
-            logger.info(f"   Preços encontrados: {prices}")
             
-            # Selecionar melhor preço
-            price = scraper.best_match(prices, query)
+            # Verificar se deve usar extrator específico
+            try:
+                from utils.price_extractors import should_use_specific_extractor, extract_nos_online_price, extract_vodafone_online_price
+                
+                if should_use_specific_extractor(site, page.url):
+                    logger.info(f"🎯 Usando extrator específico para {site}")
+                    
+                    if site == "NOS":
+                        price = await extract_nos_online_price(page)
+                        if price:
+                            logger.info(f"   ✅ Extrator NOS: {price:.2f}€")
+                            result["prices_found"] = [price]
+                            result["extractor_used"] = "NOS specific"
+                        else:
+                            logger.warning("   ⚠️  Extrator NOS falhou, usando método genérico")
+                            prices = scraper.extract_prices_from_html(html)
+                            result["prices_found"] = prices
+                            result["extractor_used"] = "generic (NOS fallback)"
+                            price = scraper.best_match(prices, query)
+                    
+                    elif site == "Vodafone":
+                        price = await extract_vodafone_online_price(page)
+                        if price:
+                            logger.info(f"   ✅ Extrator Vodafone: {price:.2f}€")
+                            result["prices_found"] = [price]
+                            result["extractor_used"] = "Vodafone specific"
+                        else:
+                            logger.warning("   ⚠️  Extrator Vodafone falhou, usando método genérico")
+                            prices = scraper.extract_prices_from_html(html)
+                            result["prices_found"] = prices
+                            result["extractor_used"] = "generic (Vodafone fallback)"
+                            price = scraper.best_match(prices, query)
+                    else:
+                        # Não deveria chegar aqui
+                        prices = scraper.extract_prices_from_html(html)
+                        result["prices_found"] = prices
+                        result["extractor_used"] = "generic"
+                        price = scraper.best_match(prices, query)
+                else:
+                    # Usar método genérico
+                    prices = scraper.extract_prices_from_html(html)
+                    result["prices_found"] = prices
+                    result["extractor_used"] = "generic"
+                    logger.info(f"   Preços encontrados: {prices}")
+                    price = scraper.best_match(prices, query)
+                    
+            except ImportError:
+                logger.warning("⚠️  Extratores específicos não disponíveis, usando método genérico")
+                prices = scraper.extract_prices_from_html(html)
+                result["prices_found"] = prices
+                result["extractor_used"] = "generic (no extractors)"
+                logger.info(f"   Preços encontrados: {prices}")
+                price = scraper.best_match(prices, query)
             result["selected_price"] = price
             
             if price:
