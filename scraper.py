@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 🍎 Apple Price Tracker — scraper.py
-Monitoriza AirPods e iPhones em 6 retalhistas PT.
+Monitoriza AirPods e iPhones em 5 retalhistas PT.
 Usa Playwright (Chromium headless) para scraping de sites JavaScript.
 
 Uso local (demo):     python3 scraper.py --demo
@@ -23,7 +23,7 @@ Sprint 2 Melhorias (Anti-Bot):
 - ✅ Retry com backoff exponencial (3x: 2s→4s→8s)
 
 Sprint 3 Melhorias (Críticas):
-- ✅ Timeouts por site (Worten/Darty: 40s, Rádio Popular: 35s, outros: 30s)
+- ✅ Timeouts por site (Worten/Darty: 40s, outros: 30s)
 - ✅ Cloudflare wait aumentado (15s → 30s)
 - ✅ Seletores de preço melhorados (MEO, NOS, Vodafone)
 - ✅ Padrões genéricos adicionais (data-*, classes price/preco/valor)
@@ -39,8 +39,8 @@ Sprint 5 Melhorias (Extratores Específicos):
 - ✅ Precisão NOS: 80% → 100% (589€ → 739€)
 
 Sprint 6 Melhorias (Performance):
-- ✅ Timeouts otimizados: 40s → 20s (Worten/Darty), 35s → 25s (Rádio Popular), 30s → 15s (outros)
-- ✅ Esperas extras otimizadas: 7s → 3s (Rádio Popular/MEO), 5s → 2s (Vodafone/NOS)
+- ✅ Timeouts otimizados: 40s → 20s (Worten/Darty), 30s → 15s (outros)
+- ✅ Esperas extras otimizadas: 7s → 3s (MEO), 5s → 2s (Vodafone/NOS)
 - ✅ Cloudflare wait otimizado: 30s → 15s
 
 Sprint 7 Melhorias (EAN + Simplificação):
@@ -344,9 +344,9 @@ def _parse_pt_price(text: str) -> Optional[float]:
 def extract_prices_from_html(html: str) -> list[float]:
     """
     Extrai preços do HTML renderizado usando múltiplas estratégias:
-    1. JSON-LD schema.org (MEO, Rádio Popular, etc.)
+    1. JSON-LD schema.org (MEO, Worten, etc.)
     2. __NEXT_DATA__ (Next.js — Worten, NOS)
-    3. itemprop="price" (Rádio Popular, Worten)
+    3. itemprop="price" (Worten)
     4. Padrões em JSON embebido no JS (Vodafone, Worten, NOS)
     5. Padrões inline no HTML (qualquer site)
     """
@@ -416,23 +416,7 @@ def extract_prices_from_html(html: str) -> list[float]:
         for hit in re.findall(pat, html):
             add(_parse_pt_price(hit))
 
-    # 6. Rádio Popular — <select name="modp"> com data-total nas opcoes de pagamento
-    # O preco de compra a vista esta na opcao com value="1"
-    pat_sel = re.compile(r'<select[^>]*name=["\']modp["\'][^>]*>(.*?)</select>', re.DOTALL)
-    pat_v1  = re.compile(r'<option[^>]*value=["\']1["\'][^>]*data-total=["\']([^"\']+)["\']')
-    pat_dt  = re.compile(r'<option[^>]*data-total=["\']([^"\']+)["\']')
-    for sel_m in pat_sel.finditer(html):
-        sel_html = sel_m.group(1)
-        m = pat_v1.search(sel_html)
-        if m:
-            add(_parse_pt_price(m.group(1)))
-        else:
-            all_dt = pat_dt.findall(sel_html)
-            if all_dt:
-                add(_parse_pt_price(all_dt[-1]))
-
-
-    # 7. Worten — aria-label="Preco 149,99" em <span>
+    # 6. Worten — aria-label="Preco 149,99" em <span>
     pat_aria = re.compile(r'aria-label=["\']Prec[oô]\s+([\d.,]+)["\']')
     for m in pat_aria.finditer(html):
         add(_parse_pt_price(m.group(1)))

@@ -1,27 +1,74 @@
 {
-  "_comment": "URLs diretos dos produtos para evitar Cloudflare e timeouts",
-  "_instructions": "Adicione URLs diretos aqui para produtos que falham no scraping automático",
-  "_format": "{ 'Produto Variante': { 'Site': 'URL direto' } }",
+  "_comment": "URLs diretos para produtos - evita pesquisa e bloqueios Cloudflare",
+  "_usage": "Adicione URLs que funcionam 100% para cada produto/site",
   
-  "AirPods 4": {
-    "_comment": "Adicionar URLs quando disponíveis"
+  "iPhone 16 128GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-16-apple-6-1-128-gb-preto-7851120",
+    "Darty": "https://darty.com/products/apple-iphone-16-128gb-noir-15-noir-sm"
+  },
+  
+  "iPhone 16e 128GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-16e-apple-6-1-128-gb-preto-8377217"
+  },
+  
+  "iPhone 16e 256GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-17-apple-6-3-256-gb-azul-escuro-8600278",
+    "Darty": "https://darty.com/products/apple-iphone-16e-128gb-preto-f"
+  },
+  
+  "iPhone 17 Pro 256GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-apple-6-3-256-gb-azul-escuro-8600342",
+    "Darty": "https://darty.com/products/apple-iphone-17-pro-256gb-azu"
+  },
+  
+  "iPhone 17 Pro 512GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-apple-6-3-512-gb-azul-escuro-8600345",
+    "Darty": "https://darty.com/products/apple-iphone-17-pro-512gb-azu"
+  },
+  
+  "iPhone 17 Pro 1TB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-apple-6-3-1-tb-azul-escuro-8600348"
   },
   
   "iPhone 17 Pro Max 256GB": {
-    "_comment": "URLs diretos para evitar Cloudflare",
-    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-256-gb-azul-escuro-8600362"
-  },
-  
-  "iPhone 17e 256GB": {
-    "_comment": "Teste NOS - Preço online",
-    "NOS": "https://lojaonline.nos.pt/produto/apple-iphone-17e-5g-256gb-preto-256gb-65714?&pt=cn"
+    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-256-gb-azul-escuro-8600360",
+    "Darty": "https://darty.com/products/apple-iphone-17-pro-max-256gb"
   },
   
   "iPhone 17 Pro Max 512GB": {
-    "_comment": "Adicionar URLs quando disponíveis"
+    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-512-gb-azul-escuro-8600363"
   },
   
   "iPhone 17 Pro Max 1TB": {
-    "_comment": "Adicionar URLs quando disponíveis"
+    "Worten": "https://www.worten.pt/produtos/iphone-17-pro-max-apple-6-9-1-tb-azul-escuro-8600369"
+  },
+  
+  "iPhone Air 256GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-air-apple-6-6-9-2-tb-azul-escuro-8600372"
+  },
+  
+  "iPhone 17e 256GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-17e-apple-6-1-256-gb-preto-8782294",
+    "Darty": "https://darty.com/products/apple-iphone-17e-256gb-preto-f"
+  },
+  
+  "iPhone 17e 512GB": {
+    "Worten": "https://www.worten.pt/produtos/iphone-17e-apple-6-1-512-gb-preto-8782297",
+    "Darty": "https://darty.com/products/apple-iphone-17e-512gb-preto-f"
+  },
+  
+  "AirPods (4th Gen)": {
+    "Worten": "https://www.worten.pt/produtos/airpods-4-apple-in-ear-microfone-branco-8155131",
+    "Darty": "https://darty.com/products/apple-airpods-4"
+  },
+  
+  "AirPods (4th Gen) ANC": {
+    "Worten": "https://www.worten.pt/produtos/airpods-4-apple-in-ear-microfone-active-noise-cancelling-branco-8155134",
+    "Darty": "https://darty.com/products/apple-airpods-4-anc"
+  },
+  
+  "AirPods Pro (3rd Gen)": {
+    "Worten": "https://www.worten.pt/produtos/airpods-pro-apple-3a-geracao-usb-c-in-ear-microfone-active-noise-cancelling-branco-8155137",
+    "Darty": "https://darty.com/products/auriculares-true-wireless-bluet"
   }
 }
