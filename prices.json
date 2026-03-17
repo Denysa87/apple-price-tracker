@@ -229,7 +229,28 @@
           "url": "https://www.nos.pt"
         }
       ]
-    }
+    },
+    "AirPods (4th Gen)": {
+      "MEO": [
+        {
+          "date": "2026-03-17 17:25",
+          "price": 149.99,
+          "url": "https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple",
+          "url_source": "auto"
+        }
+      ]
+    },
+    "AirPods (4th Gen) ANC": {
+      "MEO": [
+        {
+          "date": "2026-03-17 17:25",
+          "price": 149.99,
+          "url": "https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple",
+          "url_source": "auto"
+        }
+      ]
+    },
+    "AirPods Pro (3rd Gen)": {}
   },
   "iPhone": {
     "iPhone 17 Pro Max 256GB": {
@@ -282,6 +303,12 @@
           "date": "2026-03-17 12:00",
           "price": 909.99,
           "url": "https://loja.meo.pt/telemoveis/iphone",
+          "url_source": "auto"
+        },
+        {
+          "date": "2026-03-17 17:25",
+          "price": 1499.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-256gb",
           "url_source": "auto"
         }
       ],
@@ -351,6 +378,12 @@
           "price": 909.99,
           "url": "https://loja.meo.pt/telemoveis/iphone",
           "url_source": "auto"
+        },
+        {
+          "date": "2026-03-17 17:25",
+          "price": 1749.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-512gb",
+          "url_source": "auto"
         }
       ],
       "Vodafone": [
@@ -419,6 +452,12 @@
           "price": 909.99,
           "url": "https://loja.meo.pt/telemoveis/iphone",
           "url_source": "auto"
+        },
+        {
+          "date": "2026-03-17 17:25",
+          "price": 1999.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-max-1tb",
+          "url_source": "auto"
         }
       ],
       "Vodafone": [
@@ -486,6 +525,12 @@
           "date": "2026-03-17 12:00",
           "price": 609.99,
           "url": "https://loja.meo.pt/telemoveis/iphone",
+          "url_source": "auto"
+        },
+        {
+          "date": "2026-03-17 17:25",
+          "price": 1349.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-256gb",
           "url_source": "auto"
         }
       ],
@@ -622,6 +667,12 @@
           "date": "2026-03-17 12:00",
           "price": 609.99,
           "url": "https://loja.meo.pt/telemoveis/iphone",
+          "url_source": "auto"
+        },
+        {
+          "date": "2026-03-17 17:25",
+          "price": 1849.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-17-pro-1tb",
           "url_source": "auto"
         }
       ],
@@ -1371,6 +1422,12 @@
           "price": 609.99,
           "url": "https://loja.meo.pt/telemoveis/iphone",
           "url_source": "auto"
+        },
+        {
+          "date": "2026-03-17 17:25",
+          "price": 609.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-16e-128gb",
+          "url_source": "auto"
         }
       ],
       "Vodafone": [
@@ -1659,7 +1716,18 @@
           "url": "https://www.nos.pt"
         }
       ]
-    }
+    },
+    "iPhone Air 256GB": {
+      "MEO": [
+        {
+          "date": "2026-03-17 17:25",
+          "price": 1049.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-air-256gb",
+          "url_source": "auto"
+        }
+      ]
+    },
+    "iPhone 17e 512GB": {}
   },
   "Apple Watch": {
     "Apple Watch SE 3 40mm": {
@@ -2519,6 +2587,8 @@
           "url": "https://www.vodafone.pt"
         }
       ]
-    }
+    },
+    "iPhone Air 256GB": {},
+    "iPhone 17e 512GB": {}
   }
 }
