@@ -13,6 +13,20 @@ Sprint 1 Melhorias:
 - ✅ Validação de preços por categoria (elimina bug 1499€)
 - ✅ Sistema de logging estruturado (arquivo + console)
 - ✅ Debug info guardada em caso de erro
+
+Sprint 2 Melhorias (Anti-Bot):
+- ✅ Headers HTTP completos (Sec-Fetch-*, DNT, sec-ch-ua)
+- ✅ Rotação de User-Agents (5 opções)
+- ✅ Cookies persistentes (.cookies/cookies.json, 7 dias)
+- ✅ Delays realistas (distribuição triangular 1.5-3.5s)
+- ✅ Scroll humano (200-800px aleatório)
+- ✅ Retry com backoff exponencial (3x: 2s→4s→8s)
+
+Sprint 3 Melhorias (Críticas):
+- ✅ Timeouts por site (Worten/Darty: 40s, Rádio Popular: 35s, outros: 30s)
+- ✅ Cloudflare wait aumentado (15s → 30s)
+- ✅ Seletores de preço melhorados (MEO, NOS, Vodafone)
+- ✅ Padrões genéricos adicionais (data-*, classes price/preco/valor)
 """
 
 import argparse
@@ -353,21 +367,55 @@ def extract_prices_from_html(html: str) -> list[float]:
         for m in pat.finditer(html):
             add(_parse_pt_price(m.group(1)))
 
-    # 9. MEO — <span class="price no-translate"><span>€149,99</span>
-    pat_meo = re.compile(r'class=["\']price no-translate["\'][^>]*>\s*<span>€?([\d.,]+)\s*€?</span>')
-    for m in pat_meo.finditer(html):
-        add(_parse_pt_price(m.group(1)))
+    # 9. MEO — múltiplos padrões (site mudou estrutura frequentemente)
+    meo_patterns = [
+        r'class=["\']price no-translate["\'][^>]*>\s*<span>€?([\d.,]+)\s*€?</span>',
+        r'<span[^>]*class=["\'][^"\']*price[^"\']*["\'][^>]*>€?\s*([\d.,]+)\s*€?</span>',
+        r'data-price=["\'](\d+\.?\d*)["\']',
+        r'"price"\s*:\s*"?(\d{2,5}(?:[.,]\d{1,3})*)"?',
+        r'<div[^>]*class=["\'][^"\']*price[^"\']*["\'][^>]*>\s*€?\s*([\d.,]+)\s*€?',
+    ]
+    for pat in meo_patterns:
+        for m in re.finditer(pat, html):
+            add(_parse_pt_price(m.group(1)))
 
     # 10. NOS — Angular ng-bind, preco em <p class="full-price ng-binding">149,99</p>
     # O Playwright executa JS entao o conteudo do ng-bind ja esta resolvido no HTML
-    pat_nos = re.compile(r'<p[^>]*class=["\'][^"\']*full-price[^"\']*["\'][^>]*>\s*([\d.,]+)\s*</p>')
-    for m in pat_nos.finditer(html):
-        add(_parse_pt_price(m.group(1)))
+    nos_patterns = [
+        r'<p[^>]*class=["\'][^"\']*full-price[^"\']*["\'][^>]*>\s*([\d.,]+)\s*</p>',
+        r'<span[^>]*class=["\'][^"\']*price[^"\']*["\'][^>]*>\s*€?\s*([\d.,]+)\s*€?</span>',
+        r'data-price=["\'](\d+\.?\d*)["\']',
+    ]
+    for pat in nos_patterns:
+        for m in re.finditer(pat, html):
+            add(_parse_pt_price(m.group(1)))
 
-    # 11. Vodafone — <span class="basket-toaster__price--value ...">€149,90</span>
-    pat_voda = re.compile(r'<span[^>]*basket-toaster__price--value[^>]*>\s*€?([\d.,]+)\s*€?\s*</span>')
-    for m in pat_voda.finditer(html):
-        add(_parse_pt_price(m.group(1)))
+    # 11. Vodafone — múltiplos padrões
+    voda_patterns = [
+        r'<span[^>]*basket-toaster__price--value[^>]*>\s*€?([\d.,]+)\s*€?\s*</span>',
+        r'<span[^>]*class=["\'][^"\']*price[^"\']*["\'][^>]*>\s*€?\s*([\d.,]+)\s*€?</span>',
+        r'data-price=["\'](\d+\.?\d*)["\']',
+        r'"finalPrice"\s*:\s*"?(\d{2,5}(?:[.,]\d{1,3})*)"?',
+    ]
+    for pat in voda_patterns:
+        for m in re.finditer(pat, html):
+            add(_parse_pt_price(m.group(1)))
+    
+    # 12. 🆕 Sprint 3: Padrões genéricos adicionais para todos os sites
+    # Preços em atributos data-*
+    for attr in ['data-price', 'data-product-price', 'data-final-price', 'data-sale-price']:
+        pat = re.compile(rf'{attr}=["\'](\d{{2,5}}(?:[.,]\d{{1,3}})*)["\']')
+        for m in pat.finditer(html):
+            add(_parse_pt_price(m.group(1)))
+    
+    # Preços em classes específicas
+    price_class_patterns = [
+        r'<[^>]*class=["\'][^"\']*(?:price|preco|valor)[^"\']*["\'][^>]*>\s*€?\s*([\d.,]+)\s*€?',
+        r'<[^>]*class=["\'][^"\']*(?:amount|total|value)[^"\']*["\'][^>]*>\s*€?\s*([\d.,]+)\s*€?',
+    ]
+    for pat in price_class_patterns:
+        for m in re.finditer(pat, html, re.IGNORECASE):
+            add(_parse_pt_price(m.group(1)))
 
     return sorted(found)
 
@@ -678,19 +726,33 @@ async def scrape_all_async() -> dict:
                         stats["total"] += 1
                         print(f"      {flag}  {site}{'  [override]' if is_override else ''}...", end=" ", flush=True)
                         try:
+                            # 🆕 Sprint 3: Timeouts aumentados por site
+                            # Worten/Darty: Cloudflare → 40s
+                            # Rádio Popular: Site lento → 35s
+                            # Outros JS-heavy: 30s
+                            timeout_map = {
+                                "Worten": 40000,
+                                "Darty": 40000,
+                                "Rádio Popular": 35000,
+                                "MEO": 30000,
+                                "Vodafone": 30000,
+                                "NOS": 30000,
+                            }
+                            page_timeout = timeout_map.get(site, 25000)
+                            
                             # Alguns sites precisam de networkidle para carregar resultados via JS
                             wait_mode = "networkidle" if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else "domcontentloaded"
-                            await page.goto(url, wait_until=wait_mode, timeout=25000)
+                            await page.goto(url, wait_until=wait_mode, timeout=page_timeout)
                             # Fechar banner de cookies antes de tudo
                             await dismiss_cookie_banner(page)
-                            # 🆕 Sprint 1: Espera extra aumentada (3s → 5s para sites JS-heavy)
-                            extra_wait = 5000 if site in ("Rádio Popular", "MEO", "Vodafone", "NOS") else 3000
+                            # 🆕 Sprint 3: Espera extra aumentada para sites problemáticos
+                            extra_wait = 7000 if site in ("Rádio Popular", "MEO") else 5000 if site in ("Vodafone", "NOS") else 3000
                             await page.wait_for_timeout(extra_wait)
                             # Tentar aguardar pelos cards de produto (JS frameworks)
                             site_sel = SITE_PRODUCT_SELECTORS.get(site, "")
                             if site_sel:
                                 try:
-                                    await page.wait_for_selector(site_sel, timeout=8000)
+                                    await page.wait_for_selector(site_sel, timeout=10000)
                                 except Exception:
                                     pass  # timeout — continuar com o que temos
                             html = await page.content()
@@ -698,17 +760,20 @@ async def scrape_all_async() -> dict:
                             if ANTI_BOT_AVAILABLE:
                                 await simulate_human_behavior(page, logger)
                             
-                            # 🆕 Sprint 1: Cloudflare wait aumentado (8s → 15s)
+                            # 🆕 Sprint 3: Cloudflare wait aumentado (15s → 30s) com retry
                             if is_cloudflare_blocked(html):
                                 if logger:
                                     log_cloudflare_block(logger, site)
                                 stats["cloudflare_blocks"] += 1
-                                await page.wait_for_timeout(15000)
+                                print(f"⏳ Cloudflare detectado, aguardando 30s...", end=" ", flush=True)
+                                await page.wait_for_timeout(30000)
                                 html = await page.content()
                                 if is_cloudflare_blocked(html):
-                                    print(f"⛔  Cloudflare")
+                                    print(f"⛔  Cloudflare (bloqueado)")
                                     stats["failed"] += 1
                                     continue
+                                else:
+                                    print(f"✅ Cloudflare resolvido", end=" ")
 
                             # Se não é override, tentar navegar para a página do produto
                             if not is_override:
