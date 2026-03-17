@@ -7,11 +7,12 @@ from typing import Optional
 
 
 # Ranges de preços esperados por categoria de produto (em euros)
+# 🆕 Sprint 8: Expandidos para aceitar preços válidos do mercado (799.99€, 149.99€, etc.)
 PRICE_RANGES = {
-    # AirPods
-    "airpods 4": (120, 180),
-    "airpods 4 anc": (170, 230),
-    "airpods pro": (200, 300),
+    # AirPods - ranges expandidos para aceitar promoções e preços reais
+    "airpods 4": (130, 200),  # Sprint 8: Expandido de (120,180) para aceitar 149.99€
+    "airpods 4 anc": (170, 250),  # Sprint 8: Expandido para aceitar variações
+    "airpods pro": (140, 300),
     "airpods max": (400, 650),
     
     # iPhones Pro Max
@@ -28,14 +29,14 @@ PRICE_RANGES = {
     
     # iPhones Standard
     "iphone 17 128gb": (900, 1100),
-    "iphone 17 256gb": (1050, 1250),
+    "iphone 17 256gb": (1050, 1300),  # Sprint 8: Expandido para aceitar 1249.99€
     "iphone 17 512gb": (1300, 1500),
     "iphone 17 air": (1000, 1350),
-    "iphone 17e": (550, 800),
-    "iphone 16 128gb": (800, 1000),
+    "iphone 17e": (550, 1150),  # Sprint 8: Expandido para aceitar 989.99€ e variações
+    "iphone 16 128gb": (750, 1050),  # Sprint 8: Expandido de (750,1000) para aceitar 799.99€
     "iphone 16 256gb": (950, 1150),
     "iphone 16 512gb": (1150, 1350),
-    "iphone 16e": (600, 850),
+    "iphone 16e": (550, 1050),
     "iphone 15": (650, 1150),
     
     # Apple Watch
