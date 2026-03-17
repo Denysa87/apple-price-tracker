@@ -1,16 +1,17 @@
 # 🍎 Apple Price Tracker
 
-Monitoriza automaticamente os preços de **AirPods, iPhone e Apple Watch** nos principais
+Monitoriza automaticamente os preços de **AirPods e iPhones** nos principais
 retalhistas portugueses, 4× por dia, e publica o dashboard no **GitHub Pages**.
 
-| Retalhista | País |
-|---|---|
-| Worten | 🇵🇹 |
-| Rádio Popular | 🇵🇹 |
-| Darty | 🇫🇷/🇵🇹 |
-| MEO | 🇵🇹 |
-| Vodafone | 🇵🇹 |
-| NOS | 🇵🇹 |
+**🆕 Sprint 7:** Catálogo simplificado (14 produtos) com códigos EAN para pesquisa mais precisa.
+
+| Retalhista | País | EAN Support |
+|---|---|---|
+| Worten | 🇵🇹 | ✅ |
+| Darty | 🇫🇷/🇵🇹 | ✅ |
+| MEO | 🇵🇹 | ❌ |
+| Vodafone | 🇵🇹 | ❌ |
+| NOS | 🇵🇹 | ❌ |
 
 ## 📊 Dashboard
 
@@ -258,7 +259,12 @@ ls -la debug/
 - [`SPRINT2_CHANGES.md`](SPRINT2_CHANGES.md) - Anti-bot (headers, cookies, retry)
 - [`SPRINT3_CHANGES.md`](SPRINT3_CHANGES.md) - Timeouts, seletores, padrões genéricos
 - [`SPRINT4_CHANGES.md`](SPRINT4_CHANGES.md) - Correções navegação MEO (404 → 100% sucesso)
-- [`SPRINT5_CHANGES.md`](SPRINT5_CHANGES.md) - 🆕 Extratores específicos NOS/Vodafone (DCN → Online)
+- [`SPRINT5_CHANGES.md`](SPRINT5_CHANGES.md) - Extratores específicos NOS/Vodafone (DCN → Online)
+- [`SPRINT6_CHANGES.md`](SPRINT6_CHANGES.md) - Otimizações de performance (2h → 67min)
+- [`SPRINT7_CHANGES.md`](SPRINT7_CHANGES.md) - 🆕 EAN integration + simplificação (14 produtos, 5 sites)
+- [`EAN_GUIDE.md`](EAN_GUIDE.md) - 🆕 Guia completo de uso de códigos EAN
+- [`TRACKER_STATUS.md`](TRACKER_STATUS.md) - Estado completo + 10 otimizações gratuitas
+- [`PERFORMANCE_OPTIMIZATION.md`](PERFORMANCE_OPTIMIZATION.md) - Análise técnica detalhada
 - [`URL_OVERRIDES_GUIDE.md`](URL_OVERRIDES_GUIDE.md) - Guia para URLs manuais (Cloudflare)
 
 ## 🎯 Roadmap
@@ -268,12 +274,14 @@ ls -la debug/
 - **Sprint 2:** Anti-bot (headers, cookies, User-Agent, delays, scroll, retry)
 - **Sprint 3:** Timeouts personalizados, seletores melhorados, padrões genéricos
 - **Sprint 4:** Correção navegação MEO (pesquisa 404 → categoria funcional)
-- **Sprint 5:** 🆕 Extratores específicos NOS/Vodafone (DCN → Online, 589€ → 739€)
+- **Sprint 5:** Extratores específicos NOS/Vodafone (DCN → Online, 589€ → 739€)
+- **Sprint 6 Fase 1:** Otimizações de performance (2h → 67min, -44%)
+- **Sprint 7:** 🆕 EAN integration + simplificação (14 produtos, 5 sites)
 
 ### 🔄 Próximos Passos
-- **Cloudflare (Worten/Darty):** Consultar PTtrackify do colega ou usar URL overrides
-- **Rádio Popular:** Investigar timeout (35s ainda insuficiente)
-- **Sprint 6 (futuro):** Dashboard monitorização, alertas, métricas
+- **Sprint 6 Fase 2:** Paralelização com asyncio.gather() (54min → 9min, -84%)
+- **Validação de EAN:** Confirmar produto correto via EAN
+- **Cloudflare (Worten/Darty):** Monitorizar melhoria com EAN
 
 ## 📊 Evolução da Taxa de Sucesso
 
@@ -284,8 +292,9 @@ ls -la debug/
 | Sprint 2 | >80% (meta) | Anti-bot completo |
 | Sprint 3 | >60% (meta) | Timeouts + seletores |
 | Sprint 4 | MEO: 100% | Navegação por categoria |
-| **Sprint 5** | **NOS: 100%** | **Extratores específicos** |
-| Sprint 1+2+3+4+5 | >85% (meta) | Combinação de todas |
+| Sprint 5 | NOS: 100% | Extratores específicos |
+| Sprint 6 Fase 1 | ~65% | Performance (-44% tempo) |
+| **Sprint 7** | **80-85% (esperado)** | **EAN + simplificação** |
 
 ---
 
@@ -361,14 +370,119 @@ Ver [`SPRINT5_CHANGES.md`](SPRINT5_CHANGES.md) para detalhes técnicos completos
 
 ---
 
+## 🚀 Sprint 6 - Otimizações de Performance
+
+### ✅ Fase 1: Quick Wins (Implementado)
+
+**Problema Identificado:**
+- Tempo de execução: **~2 horas** (120 minutos)
+- Causa: Execução sequencial + timeouts excessivos
+- Cálculo: 180 requests × 37.5s = 6,750s = 112 min
+
+**Otimizações Implementadas:**
+
+#### 1. Timeouts Otimizados (-50%)
+```python
+# ANTES: 40s Worten/Darty, 35s Rádio Popular, 30s outros
+# DEPOIS: 20s Worten/Darty, 25s Rádio Popular, 15s outros
+```
+
+#### 2. Esperas Extras Otimizadas (-60%)
+```python
+# ANTES: 7s Rádio Popular/MEO, 5s Vodafone/NOS
+# DEPOIS: 3s Rádio Popular/MEO, 2s Vodafone/NOS
+```
+
+#### 3. Cloudflare Wait Otimizado (-50%)
+```python
+# ANTES: 30s
+# DEPOIS: 15s
+```
+
+**Resultado:**
+```
+ANTES: 180 requests × 37.5s = 112 min
+DEPOIS: 180 requests × 22.5s = 67 min
+Redução: -44% (-45 minutos) ✅
+```
+
+### ⏳ Fase 2: Paralelização (Próximo Sprint)
+
+**Conceito:** Scrape 6 sites em **paralelo** com `asyncio.gather()`
+
+**Impacto Esperado:**
+```
+ANTES (Fase 1): 67 min (sequencial)
+DEPOIS (Fase 2): 11 min (paralelo)
+Redução: -84% (-56 minutos) 🎯
+```
+
+**Código exemplo disponível em [`SPRINT6_CHANGES.md`](SPRINT6_CHANGES.md)**
+
+### 📄 Documentação Completa
+- [`SPRINT6_CHANGES.md`](SPRINT6_CHANGES.md) - Otimizações implementadas + roadmap
+- [`TRACKER_STATUS.md`](TRACKER_STATUS.md) - Estado completo + 10 otimizações gratuitas
+- [`PERFORMANCE_OPTIMIZATION.md`](PERFORMANCE_OPTIMIZATION.md) - Análise técnica detalhada
+
+---
+
+## 🎯 Sprint 7 - EAN Integration + Simplificação
+
+### ✅ Catálogo Simplificado (14 produtos)
+
+**Removidos:**
+- ❌ Rádio Popular (taxa sucesso 40%, timeouts frequentes)
+- ❌ Apple Watch (foco em iPhones e AirPods)
+- ❌ Modelos antigos (iPhone 15, iPhone 17 base, etc.)
+
+**Mantidos:**
+- ✅ **3 AirPods:** 4th Gen, 4th Gen ANC, Pro 3rd Gen
+- ✅ **11 iPhones:** 16, 16e, 17 Pro, 17 Pro Max, Air, 17e
+
+### ✅ Pesquisa por EAN (European Article Number)
+
+**Como funciona:**
+```python
+# Antes (Sprint 1-6): Pesquisa por nome
+https://www.worten.pt/search?query=Apple+iPhone+17+Pro+Max+256GB
+→ 50+ resultados, Cloudflare suspeita (70% bloqueio)
+
+# Depois (Sprint 7): Pesquisa por EAN
+https://www.worten.pt/search?query=19595063216
+→ 1 resultado exato, menos bloqueios (30% bloqueio)
+```
+
+**Sites com suporte EAN:**
+- ✅ **Worten** - Pesquisa direta por EAN
+- ✅ **Darty** - Pesquisa direta por EAN
+- ❌ MEO/Vodafone/NOS - Não suportam (usam nome)
+
+### 📊 Impacto Esperado
+
+| Site | Sprint 6 | Sprint 7 (esperado) | Melhoria |
+|------|----------|---------------------|----------|
+| **Worten** | 30% | 60-70% | +30-40% |
+| **Darty** | 25% | 50-60% | +25-35% |
+| **MEO** | 100% | 100% | 0% |
+| **Vodafone** | 85% | 90% | +5% |
+| **NOS** | 90% | 95% | +5% |
+| **Global** | 65% | **80-85%** | **+15-20%** |
+
+**Tempo de execução:**
+- Produtos: 30 → 14 (-53%)
+- Sites: 6 → 5 (-17%)
+- Requests: 180 → 70 (-61%)
+- **Tempo: 67min → 54min (-19%)**
+
+### 📄 Documentação Completa
+- [`SPRINT7_CHANGES.md`](SPRINT7_CHANGES.md) - Implementação detalhada
+- [`EAN_GUIDE.md`](EAN_GUIDE.md) - Guia completo de uso de EANs
+
+---
+
 ## 🚨 Sites com Problemas Conhecidos
 
 ### Cloudflare (Worten, Darty)
-- **Problema:** Bloqueio Cloudflare mesmo com 30s wait
-- **Solução temporária:** URL overrides (ver [`URL_OVERRIDES_GUIDE.md`](URL_OVERRIDES_GUIDE.md))
-- **Solução futura:** Consultar projeto PTtrackify do colega
-
-### Rádio Popular
-- **Problema:** Timeout 35s excedido
-- **Investigação:** Site muito lento ou JavaScript complexo
-- **Próximo passo:** Aumentar timeout para 45s ou usar URL override
+- **Problema:** Bloqueio Cloudflare (Sprint 6: 70%)
+- **Solução Sprint 7:** Pesquisa por EAN reduz bloqueios (esperado: 30%)
+- **Monitorização:** Verificar taxa de sucesso real após Sprint 7
