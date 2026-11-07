@@ -1623,6 +1623,12 @@
           "price": 134.99,
           "url": "https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple",
           "url_source": "auto"
+        },
+        {
+          "date": "2026-11-07 16:12",
+          "price": 134.99,
+          "url": "https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple",
+          "url_source": "auto"
         }
       ]
     },
@@ -3022,6 +3028,12 @@
         },
         {
           "date": "2026-11-06 17:25",
+          "price": 134.99,
+          "url": "https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple",
+          "url_source": "auto"
+        },
+        {
+          "date": "2026-11-07 16:12",
           "price": 134.99,
           "url": "https://loja.meo.pt/acessorios-telemoveis/auriculares-colunas/auriculares-bluetooth?marca=Apple",
           "url_source": "auto"
@@ -9981,6 +9993,12 @@
           "price": 1039.99,
           "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-16-128gb",
           "url_source": "auto"
+        },
+        {
+          "date": "2026-11-07 16:12",
+          "price": 1039.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-16-128gb",
+          "url_source": "auto"
         }
       ],
       "Vodafone": [
@@ -11568,6 +11586,12 @@
         },
         {
           "date": "2026-11-06 17:25",
+          "price": 599.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-16e-128gb",
+          "url_source": "auto"
+        },
+        {
+          "date": "2026-11-07 16:12",
           "price": 599.99,
           "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-16e-128gb",
           "url_source": "auto"
@@ -14284,6 +14308,12 @@
           "date": "2026-11-06 17:25",
           "price": 1449.99,
           "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-air-1tb",
+          "url_source": "auto"
+        },
+        {
+          "date": "2026-11-07 16:12",
+          "price": 949.99,
+          "url": "https://loja.meo.pt/comprar/telemoveis/apple/iphone-air-256gb",
           "url_source": "auto"
         }
       ]
